@@ -10,7 +10,7 @@
 
 ---
 
-## Task 1: Project Skeleton & Docker Infrastructure
+## Task 1 [Phase 1 — Foundation]: Project Skeleton & Docker Infrastructure ✅
 
 **Files:**
 - Create: `railsense-ai/pyproject.toml`
@@ -170,7 +170,7 @@ git commit -m "feat: project skeleton with Docker, FastAPI, Streamlit, PostgreSQ
 
 ---
 
-## Task 2: Database Schema & Configuration
+## Task 2 [Phase 1 — Foundation]: Database Schema & Configuration ✅
 
 **Files:**
 - Create: `railsense-ai/src/config.py`
@@ -381,7 +381,7 @@ git commit -m "feat: database schema with SQLAlchemy models and Alembic migratio
 
 ---
 
-## Task 3: Synthetic Sensor Data Generator
+## Task 3 [Phase 1 — Foundation]: Synthetic Sensor Data Generator ✅
 
 **Files:**
 - Create: `railsense-ai/src/ingestion/__init__.py`
@@ -584,7 +584,7 @@ git commit -m "feat: synthetic sensor data generator with anomaly injection"
 
 ---
 
-## Task 4: Seed Script & Ingestion API
+## Task 4 [Phase 1 — Foundation]: Seed Script & Ingestion API ✅
 
 **Files:**
 - Create: `railsense-ai/scripts/seed_data.py`
@@ -819,7 +819,7 @@ git commit -m "feat: API endpoints for sensors/anomalies and seed data script"
 
 ---
 
-## Task 5: Z-Score Detector
+## Task 5 [Phase 2 — Detection Engine]: Z-Score Detector ✅
 
 **Files:**
 - Create: `railsense-ai/src/detection/__init__.py`
@@ -950,7 +950,7 @@ git commit -m "feat: Z-score anomaly detector with rolling baseline"
 
 ---
 
-## Task 6: Isolation Forest Detector
+## Task 6 [Phase 2 — Detection Engine]: Isolation Forest Detector ✅
 
 **Files:**
 - Create: `railsense-ai/src/detection/isolation_forest.py`
@@ -1069,7 +1069,7 @@ git commit -m "feat: Isolation Forest multivariate anomaly detector"
 
 ---
 
-## Task 7: STL Decomposition Detector
+## Task 7 [Phase 2 — Detection Engine]: STL Decomposition Detector
 
 **Files:**
 - Create: `railsense-ai/src/detection/stl_detector.py`
@@ -1183,7 +1183,7 @@ git commit -m "feat: STL decomposition anomaly detector"
 
 ---
 
-## Task 8: Prophet Detector
+## Task 8 [Phase 2 — Detection Engine]: Prophet Detector
 
 **Files:**
 - Create: `railsense-ai/src/detection/prophet_detector.py`
@@ -1300,7 +1300,7 @@ git commit -m "feat: Prophet forecast-based anomaly detector"
 
 ---
 
-## Task 9: Ensemble Scoring
+## Task 9 [Phase 2 — Detection Engine]: Ensemble Scoring
 
 **Files:**
 - Create: `railsense-ai/src/detection/ensemble.py`
@@ -1421,7 +1421,7 @@ git commit -m "feat: ensemble scorer combining multiple detection methods"
 
 ---
 
-## Task 10: LLM Provider Abstraction & Claude Implementation
+## Task 10 [Phase 4 — AI Agent]: LLM Provider Abstraction & Claude Implementation
 
 **Files:**
 - Create: `railsense-ai/src/agent/__init__.py`
@@ -1654,7 +1654,7 @@ git commit -m "feat: LLM provider abstraction with Claude implementation and pro
 
 ---
 
-## Task 11: OpenAI & Ollama Providers
+## Task 11 [Phase 4 — AI Agent]: OpenAI & Ollama Providers
 
 **Files:**
 - Create: `railsense-ai/src/agent/openai_provider.py`
@@ -1791,7 +1791,7 @@ git commit -m "feat: OpenAI and Ollama LLM provider implementations"
 
 ---
 
-## Task 12: Agent Assessment API Endpoint
+## Task 12 [Phase 4 — AI Agent]: Agent Assessment API Endpoint
 
 **Files:**
 - Modify: `railsense-ai/src/api/main.py`
@@ -1881,7 +1881,7 @@ git commit -m "feat: anomaly assessment API endpoint with LLM agent integration"
 
 ---
 
-## Task 13: LTA DataMall API Client
+## Task 13 [Phase 3 — LTA Integration]: LTA DataMall API Client
 
 **Files:**
 - Create: `railsense-ai/src/ingestion/lta_client.py`
@@ -2007,7 +2007,7 @@ git commit -m "feat: LTA DataMall API client for train arrivals and disruptions"
 
 ---
 
-## Task 14: Detection Pipeline Runner
+## Task 14 [Phase 3 — LTA Integration]: Detection Pipeline Runner
 
 **Files:**
 - Create: `railsense-ai/src/detection/pipeline.py`
@@ -2156,10 +2156,71 @@ git commit -m "feat: detection pipeline runner with ensemble integration"
 
 ---
 
-## Task 15: Streamlit Dashboard — Live Overview
+## Task 14b [Phase 5 — Dashboard]: Dashboard UI Design with Pencil
+
+**Files:**
+- Create: `railsense-ai/designs/dashboard.pen` (via Pencil MCP tools)
+
+**Prerequisites:** Complete before Tasks 15-18. All dashboard implementation must follow the designs produced here.
+
+**Process:** Use the Pencil MCP extension to design all four dashboard views before any Streamlit implementation begins. This ensures a cohesive visual language across pages.
+
+**Step 1: Get design guidelines and style guide**
+
+Use `get_guidelines(topic="web-app")` to load Pencil's web application design rules. Then use `get_style_guide_tags` and `get_style_guide` to select a style appropriate for an enterprise monitoring/operations dashboard (dark theme preferred — common for NOC/operations dashboards).
+
+**Step 2: Design the Live Overview page**
+
+Create a design in the `.pen` file showing:
+- Navigation sidebar with 4 page links
+- 4 metric summary cards in a row (Critical Alerts, Warnings, Affected Trains, System Health %)
+- MRT line health map with color-coded status per line segment
+- Anomaly table below with columns: timestamp, train_id, line_id, sensor_type, severity, score
+
+**Step 3: Design the Sensor Explorer page**
+
+Create a design showing:
+- Train unit selector dropdown and sensor type selector
+- Large time-series line chart with anomaly regions highlighted (red shading)
+- Detection method toggle overlay controls
+- Anomaly details table below the chart
+
+**Step 4: Design the Alert Feed page**
+
+Create a design showing:
+- Severity filter chips (critical, warning)
+- Expandable alert cards with severity badge (red/yellow), train ID, sensor type, timestamp
+- Expanded card showing: anomaly score, line/station, detection method
+- "Request AI Analysis" button within each card
+- AI assessment display: root cause, recommended action, reasoning
+
+**Step 5: Design the Model Comparison page**
+
+Create a design showing:
+- "Run Comparison" button
+- Side-by-side metric panels for STL vs Prophet (precision, recall, F1, computation time, total flagged)
+- Sensor data chart with anomaly window highlighted
+- Predicted vs actual overlay with residual bands
+
+**Step 6: Validate designs**
+
+Use `get_screenshot` to capture each designed view. Review for visual consistency, spacing, and information hierarchy. Iterate as needed.
+
+**Step 7: Commit**
+
+```bash
+git add .
+git commit -m "design: dashboard UI mockups for all 4 views using Pencil"
+```
+
+---
+
+## Task 15 [Phase 5 — Dashboard]: Streamlit Dashboard — Live Overview
 
 **Files:**
 - Modify: `railsense-ai/src/dashboard/app.py`
+
+**Design reference:** Follow the Live Overview design from `railsense-ai/designs/dashboard.pen` (Task 14b). Match the layout, component placement, and visual hierarchy from the Pencil mockup.
 
 **Step 1: Implement the Live Overview page**
 
@@ -2247,10 +2308,12 @@ git commit -m "feat: Streamlit dashboard with Live Overview page"
 
 ---
 
-## Task 16: Streamlit Dashboard — Sensor Explorer
+## Task 16 [Phase 5 — Dashboard]: Streamlit Dashboard — Sensor Explorer
 
 **Files:**
 - Modify: `railsense-ai/src/dashboard/app.py`
+
+**Design reference:** Follow the Sensor Explorer design from `railsense-ai/designs/dashboard.pen` (Task 14b). Match the layout, component placement, and visual hierarchy from the Pencil mockup.
 
 **Step 1: Replace the Sensor Explorer placeholder** with:
 
@@ -2299,11 +2362,13 @@ git commit -m "feat: Sensor Explorer page with anomaly overlay"
 
 ---
 
-## Task 17: Streamlit Dashboard — Alert Feed
+## Task 17 [Phase 5 — Dashboard]: Streamlit Dashboard — Alert Feed
 
 **Files:**
 - Modify: `railsense-ai/src/dashboard/app.py`
 - Modify: `railsense-ai/src/api/main.py` (add assessments GET endpoint)
+
+**Design reference:** Follow the Alert Feed design from `railsense-ai/designs/dashboard.pen` (Task 14b). Match the layout, component placement, and visual hierarchy from the Pencil mockup.
 
 **Step 1: Add GET assessments endpoint to `src/api/main.py`**
 
@@ -2369,12 +2434,14 @@ git commit -m "feat: Alert Feed page with inline LLM agent analysis"
 
 ---
 
-## Task 18: Streamlit Dashboard — Model Comparison
+## Task 18 [Phase 5 — Dashboard]: Streamlit Dashboard — Model Comparison
 
 **Files:**
 - Modify: `railsense-ai/src/dashboard/app.py`
 - Create: `railsense-ai/src/detection/compare.py`
 - Test: `railsense-ai/tests/test_compare.py`
+
+**Design reference:** Follow the Model Comparison design from `railsense-ai/designs/dashboard.pen` (Task 14b). Match the layout, component placement, and visual hierarchy from the Pencil mockup.
 
 **Step 1: Write failing test `tests/test_compare.py`**
 
@@ -2500,7 +2567,7 @@ git commit -m "feat: Model Comparison page with STL vs Prophet metrics"
 
 ---
 
-## Task 19: Prefect Scheduling
+## Task 19 [Phase 3 — LTA Integration]: Prefect Scheduling
 
 **Files:**
 - Create: `railsense-ai/src/tasks.py`
@@ -2610,7 +2677,7 @@ git commit -m "feat: Prefect flow for scheduled ingestion and detection"
 
 ---
 
-## Task 20: Test Configuration & conftest
+## Task 20 [Phase 6 — Polish]: Test Configuration & conftest
 
 **Files:**
 - Create: `railsense-ai/tests/conftest.py`
@@ -2658,7 +2725,7 @@ git commit -m "feat: test conftest with SQLite in-memory database"
 
 ---
 
-## Task 21: README & Final Polish
+## Task 21 [Phase 6 — Polish]: README & Final Polish
 
 **Files:**
 - Create: `railsense-ai/README.md`
