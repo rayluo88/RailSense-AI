@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -7,9 +8,16 @@ from src.agent.provider import AnomalyContext, get_provider
 from src.api.schemas import AgentAssessmentOut, AnomalyEventOut, SensorReadingOut
 from src.config import settings
 from src.db.models import AgentAssessment as AgentAssessmentModel, AnomalyEvent, SensorReading
-from src.db.session import get_db
+from src.db.session import Base, engine, get_db
 
-app = FastAPI(title="RailSense-AI", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(title="RailSense-AI", version="0.1.0", lifespan=lifespan)
 
 
 @app.get("/health")

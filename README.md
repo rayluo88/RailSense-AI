@@ -6,20 +6,15 @@ A full-stack decision intelligence platform that ingests train sensor telemetry,
 
 ---
 
-## Why This Project
+## Key Capabilities
 
-The LTA Rail Digitalisation Division is building the intelligence layer of the Railway Common Data Platform (CDP) — systems that not only detect anomalies in complex railway time-series data but also **reason about them** to produce clear, actionable outcomes for maintenance and operations.
-
-RailSense-AI demonstrates the core capabilities this role demands:
-
-| JD Requirement | Implementation |
+| Capability | How It Works |
 |---|---|
-| **Time-series anomaly detection** (Z-score, growth rate, statistical thresholds) | Four detection methods: Z-Score rolling baseline, Isolation Forest multivariate, STL seasonal decomposition, Prophet forecast residuals — combined via weighted ensemble scoring |
-| **Decision Intelligence / AI Agents** (autonomous systems combining statistical triggers with LLM reasoning) | Protocol-based LLM provider abstraction with DeepSeek, Claude, OpenAI, and Ollama backends; agents automatically categorise, prioritise, and recommend actions for detected anomalies |
-| **MLOps & full ML lifecycle** (automated workflows, maintenance alerts) | Prefect-orchestrated ingestion-detection pipeline, Docker Compose deployment, PostgreSQL persistence, 46 automated tests |
-| **Data engineering** (real-time APIs, scalable pipelines) | LTA DataMall API integration, synthetic sensor data generator with configurable failure scenarios, FastAPI REST endpoints |
-| **Visualization & dashboard collaboration** (translating model outputs for UI/UX) | Streamlit dashboard with 4 purpose-built views; HTML design mockups created first to establish visual language before implementation |
-| **Stakeholder communication** (explaining algorithmic logic) | Model Comparison page provides side-by-side precision/recall/F1 metrics; AI agent assessments include structured reasoning chains |
+| **Time-series anomaly detection** | Four detection methods — Z-Score rolling baseline, Isolation Forest multivariate, STL seasonal decomposition, Prophet forecast residuals — combined via weighted ensemble scoring with agreement boosting |
+| **Decision intelligence** | Protocol-based LLM provider abstraction (DeepSeek, Claude, OpenAI, Ollama) that analyses flagged anomalies and returns structured root-cause hypotheses, severity classifications, and maintenance recommendations |
+| **Automated ML pipelines** | Prefect-orchestrated ingestion → detection → alerting workflow, Dockerised deployment, PostgreSQL persistence, 46 automated tests |
+| **Data integration** | LTA DataMall API client for live train data, synthetic sensor generator with configurable failure scenarios (bearing degradation, door wear, electrical faults) |
+| **Operations dashboard** | Streamlit UI with 4 views: live network overview, sensor time-series drilldown with anomaly overlays, severity-filtered alert feed, and side-by-side model comparison (precision / recall / F1) |
 
 ---
 
