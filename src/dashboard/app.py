@@ -831,6 +831,54 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
     padding: 1px 5px;
     border-radius: 8px;
 }
+
+/* ── Custom Metric Cards (matching mockup) ── */
+.metric-card-custom {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.metric-card-custom::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+}
+
+.metric-card-custom.critical::before { background: var(--critical); }
+.metric-card-custom.warning::before { background: var(--warning); }
+.metric-card-custom.healthy::before { background: var(--healthy); }
+.metric-card-custom.info::before { background: var(--info); }
+
+.metric-card-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.metric-card-value {
+    font-family: var(--font-mono);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    line-height: 1;
+}
+
+.metric-card-custom.critical .metric-card-value { color: var(--critical); }
+.metric-card-custom.warning .metric-card-value { color: var(--warning); }
+.metric-card-custom.healthy .metric-card-value { color: var(--healthy); }
+.metric-card-custom.info .metric-card-value { color: var(--accent); }
+
 </style>
 """
 
@@ -964,30 +1012,35 @@ if page == "Live Overview":
     anomalies = fetch("/api/anomalies", {"limit": 500})
 
     # ── Metric Cards ──
+    TOTAL_FLEET = 200  # Approximate MRT fleet across NSL, EWL, CCL, DTL, NEL
+
     critical = [a for a in anomalies if a.get("severity") == "critical"]
     warnings = [a for a in anomalies if a.get("severity") == "warning"]
     trains = set(a.get("train_id", "") for a in anomalies)
-    total = len(anomalies)
-    health = max(0, 100 - total)
+    affected = len(trains)
+    health = round((TOTAL_FLEET - affected) / TOTAL_FLEET * 100)
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.markdown('<div class="metric-critical">', unsafe_allow_html=True)
-        st.metric("Critical Alerts", len(critical))
-        st.markdown("</div>", unsafe_allow_html=True)
-    with col2:
-        st.markdown('<div class="metric-warning">', unsafe_allow_html=True)
-        st.metric("Warnings", len(warnings))
-        st.markdown("</div>", unsafe_allow_html=True)
-    with col3:
-        st.markdown('<div class="metric-info">', unsafe_allow_html=True)
-        st.metric("Affected Trains", len(trains))
-        st.markdown("</div>", unsafe_allow_html=True)
-    with col4:
-        st.markdown('<div class="metric-healthy">', unsafe_allow_html=True)
-        st.metric("System Health", f"{health}%")
-        st.markdown("</div>", unsafe_allow_html=True)
-
+    metrics_html = f"""
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin-bottom:8px;">
+        <div class="metric-card-custom critical">
+            <div class="metric-card-label">Critical Alerts</div>
+            <div class="metric-card-value">{len(critical)}</div>
+        </div>
+        <div class="metric-card-custom warning">
+            <div class="metric-card-label">Warnings</div>
+            <div class="metric-card-value">{len(warnings)}</div>
+        </div>
+        <div class="metric-card-custom info">
+            <div class="metric-card-label">Affected Trains</div>
+            <div class="metric-card-value">{len(trains)}</div>
+        </div>
+        <div class="metric-card-custom healthy">
+            <div class="metric-card-label">System Health</div>
+            <div class="metric-card-value">{health}<span style="font-size:18px">%</span></div>
+        </div>
+    </div>
+    """
+    st.markdown(metrics_html, unsafe_allow_html=True)
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     # ── Line Health + Active Alerts — two columns ──
@@ -1010,9 +1063,11 @@ if page == "Live Overview":
             lid = a.get("line_id", "").upper()
             line_anomaly_counts[lid] = line_anomaly_counts.get(lid, 0) + 1
 
+        max_count = max(line_anomaly_counts.values()) if line_anomaly_counts else 1
+
         for code, (name, _) in line_info.items():
             count = line_anomaly_counts.get(code, 0)
-            pct = max(0, 100 - count * 7)
+            pct = round(100 - (count / max(max_count, 1)) * 30) if count > 0 else 100
             if pct >= 95:
                 bar_color = "#059669"
                 pct_color = "#059669"
@@ -1043,7 +1098,8 @@ if page == "Live Overview":
     with right_col:
         st.markdown('<div class="rs-card"><div class="card-title">Active Alerts</div>', unsafe_allow_html=True)
 
-        display_anomalies = anomalies[:5] if anomalies else []
+        sorted_anomalies = sorted(anomalies, key=lambda a: (0 if a.get("severity") == "critical" else 1, -a.get("anomaly_score", 0)))
+        display_anomalies = sorted_anomalies[:5] if anomalies else []
         for a in display_anomalies:
             sev = a.get("severity", "warning")
             alert_cls = "critical-alert" if sev == "critical" else "warning-alert"
@@ -1059,7 +1115,7 @@ if page == "Live Overview":
                 <div class="alert-item-compact {alert_cls}">
                     <div class="alert-pulse {pulse_cls}"></div>
                     <div style="flex:1">
-                        <div class="alert-item-title">{train} &middot; {sensor.replace('_', ' ').title()}</div>
+                        <div class="alert-item-title">{train} &middot; {sensor.replace('_', ' ').title()} anomaly detected</div>
                         <div class="alert-item-meta">{line} &middot; {station} &middot; Score: {score:.2f}</div>
                     </div>
                 </div>
