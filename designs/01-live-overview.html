@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RailSense-AI — Live Overview</title>
+  <link rel="stylesheet" href="shared-styles.css">
+  <style>
+    /* ─── Line Health Map ─── */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+      margin-bottom: var(--space-xl);
+    }
+
+    .line-health-card {
+      grid-column: 1;
+    }
+
+    .line-health-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .line-health-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: 10px var(--space-md);
+      background: var(--bg-primary);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .line-health-row .line-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      width: 140px;
+    }
+
+    .line-bar-track {
+      flex: 1;
+      height: 6px;
+      background: var(--border-subtle);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .line-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.8s ease;
+    }
+
+    .line-health-pct {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      width: 45px;
+      text-align: right;
+    }
+
+    /* ─── Active Alerts Panel ─── */
+    .active-alerts {
+      grid-column: 2;
+    }
+
+    .alert-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      background: var(--bg-primary);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      margin-bottom: var(--space-sm);
+    }
+
+    .alert-item.critical-alert {
+      border-left: 3px solid var(--critical);
+      background: var(--critical-bg);
+    }
+
+    .alert-item.warning-alert {
+      border-left: 3px solid var(--warning);
+      background: var(--warning-bg);
+    }
+
+    .alert-pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+
+    .alert-pulse.critical { background: var(--critical); animation: pulse-critical 1.5s ease-in-out infinite; }
+    .alert-pulse.warning { background: var(--warning); }
+
+    @keyframes pulse-critical {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+    }
+
+    .alert-content {
+      flex: 1;
+    }
+
+    .alert-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .alert-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .alert-time {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+
+    /* ─── Anomaly Table Section ─── */
+    .table-section {
+      margin-top: var(--space-lg);
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-md);
+    }
+
+    .table-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .anomaly-score {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+
+    .anomaly-score.high {
+      background: var(--critical-bg);
+      color: var(--critical);
+    }
+
+    .anomaly-score.medium {
+      background: var(--warning-bg);
+      color: var(--warning);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <h1>
+        <span class="logo-icon">RS</span>
+        RailSense-AI
+      </h1>
+      <div class="subtitle">Anomaly Detection Platform</div>
+    </div>
+
+    <div class="sidebar-nav">
+      <a class="nav-item active" href="01-live-overview.html">
+        <span class="nav-icon">&#9673;</span>
+        Live Overview
+      </a>
+      <a class="nav-item" href="02-sensor-explorer.html">
+        <span class="nav-icon">&#9636;</span>
+        Sensor Explorer
+      </a>
+      <a class="nav-item" href="03-alert-feed.html">
+        <span class="nav-icon">&#9888;</span>
+        Alert Feed
+      </a>
+      <a class="nav-item" href="04-model-comparison.html">
+        <span class="nav-icon">&#9881;</span>
+        Model Comparison
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="system-status">
+        <span class="status-dot"></span>
+        System Online &middot; 44 tests pass
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h2>Live Overview</h2>
+        <div class="page-subtitle">Real-time network health monitoring &middot; Singapore MRT</div>
+      </div>
+      <div class="header-time">
+        <div class="time-value">08:47:23</div>
+        <div>15 Mar 2026 &middot; SGT</div>
+      </div>
+    </div>
+
+    <!-- Metric Cards -->
+    <div class="metrics-row">
+      <div class="metric-card critical animate-in">
+        <div class="metric-label">Critical Alerts</div>
+        <div class="metric-value">3</div>
+        <div class="metric-delta">+1 last hour</div>
+      </div>
+      <div class="metric-card warning animate-in">
+        <div class="metric-label">Warnings</div>
+        <div class="metric-value">12</div>
+        <div class="metric-delta">-2 last hour</div>
+      </div>
+      <div class="metric-card info animate-in">
+        <div class="metric-label">Affected Trains</div>
+        <div class="metric-value">4</div>
+        <div class="metric-delta">of 5 monitored</div>
+      </div>
+      <div class="metric-card healthy animate-in">
+        <div class="metric-label">System Health</div>
+        <div class="metric-value">94<span style="font-size:18px">%</span></div>
+        <div class="metric-delta">&#9650; 2% vs yesterday</div>
+      </div>
+    </div>
+
+    <!-- Line Health + Active Alerts -->
+    <div class="content-grid">
+      <div class="card line-health-card">
+        <div class="card-title">MRT Line Health</div>
+        <div class="line-health-list">
+          <div class="line-health-row">
+            <span class="line-badge nsl">NSL</span>
+            <span class="line-name">North South Line</span>
+            <div class="line-bar-track">
+              <div class="line-bar-fill" style="width:72%; background: linear-gradient(90deg, var(--warning), var(--nsl-red))"></div>
+            </div>
+            <span class="line-health-pct" style="color: var(--warning)">72%</span>
+          </div>
+          <div class="line-health-row">
+            <span class="line-badge ewl">EWL</span>
+            <span class="line-name">East West Line</span>
+            <div class="line-bar-track">
+              <div class="line-bar-fill" style="width:98%; background: var(--healthy)"></div>
+            </div>
+            <span class="line-health-pct" style="color: var(--healthy)">98%</span>
+          </div>
+          <div class="line-health-row">
+            <span class="line-badge ccl">CCL</span>
+            <span class="line-name">Circle Line</span>
+            <div class="line-bar-track">
+              <div class="line-bar-fill" style="width:85%; background: var(--warning)"></div>
+            </div>
+            <span class="line-health-pct" style="color: var(--warning)">85%</span>
+          </div>
+          <div class="line-health-row">
+            <span class="line-badge dtl">DTL</span>
+            <span class="line-name">Downtown Line</span>
+            <div class="line-bar-track">
+              <div class="line-bar-fill" style="width:100%; background: var(--healthy)"></div>
+            </div>
+            <span class="line-health-pct" style="color: var(--healthy)">100%</span>
+          </div>
+          <div class="line-health-row">
+            <span class="line-badge nel">NEL</span>
+            <span class="line-name">North East Line</span>
+            <div class="line-bar-track">
+              <div class="line-bar-fill" style="width:96%; background: var(--healthy)"></div>
+            </div>
+            <span class="line-health-pct" style="color: var(--healthy)">96%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card active-alerts">
+        <div class="card-title">Active Alerts</div>
+
+        <div class="alert-item critical-alert">
+          <div class="alert-pulse critical"></div>
+          <div class="alert-content">
+            <div class="alert-title">T001 &middot; Vibration spike &mdash; bearing anomaly</div>
+            <div class="alert-meta">NSL &middot; NS14 Khatib &middot; Score: 0.95</div>
+          </div>
+          <div class="alert-time">2m ago</div>
+        </div>
+
+        <div class="alert-item critical-alert">
+          <div class="alert-pulse critical"></div>
+          <div class="alert-content">
+            <div class="alert-title">T003 &middot; Temperature exceeds threshold</div>
+            <div class="alert-meta">NSL &middot; NS9 Woodlands &middot; Score: 0.91</div>
+          </div>
+          <div class="alert-time">8m ago</div>
+        </div>
+
+        <div class="alert-item critical-alert">
+          <div class="alert-pulse critical"></div>
+          <div class="alert-content">
+            <div class="alert-title">T001 &middot; Current draw irregular pattern</div>
+            <div class="alert-meta">NSL &middot; NS14 Khatib &middot; Score: 0.88</div>
+          </div>
+          <div class="alert-time">12m ago</div>
+        </div>
+
+        <div class="alert-item warning-alert">
+          <div class="alert-pulse warning"></div>
+          <div class="alert-content">
+            <div class="alert-title">T004 &middot; Door cycle time trending up</div>
+            <div class="alert-meta">CCL &middot; CC1 Dhoby Ghaut &middot; Score: 0.67</div>
+          </div>
+          <div class="alert-time">23m ago</div>
+        </div>
+
+        <div class="alert-item warning-alert">
+          <div class="alert-pulse warning"></div>
+          <div class="alert-content">
+            <div class="alert-title">T005 &middot; Vibration gradual increase</div>
+            <div class="alert-meta">CCL &middot; CC4 Promenade &middot; Score: 0.58</div>
+          </div>
+          <div class="alert-time">41m ago</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Anomalies Table -->
+    <div class="card table-section">
+      <div class="table-header">
+        <div class="card-title" style="margin-bottom:0">Recent Anomalies</div>
+        <div>
+          <button class="btn btn-ghost" style="font-size:11px">Export CSV</button>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Train ID</th>
+            <th>Line</th>
+            <th>Sensor</th>
+            <th>Severity</th>
+            <th>Score</th>
+            <th>Method</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>08:45:12</td>
+            <td>T001</td>
+            <td><span class="line-badge nsl">NSL</span></td>
+            <td>vibration</td>
+            <td><span class="severity-badge critical">CRITICAL</span></td>
+            <td><span class="anomaly-score high">0.95</span></td>
+            <td>zscore, stl</td>
+          </tr>
+          <tr>
+            <td>08:39:48</td>
+            <td>T003</td>
+            <td><span class="line-badge nsl">NSL</span></td>
+            <td>temperature</td>
+            <td><span class="severity-badge critical">CRITICAL</span></td>
+            <td><span class="anomaly-score high">0.91</span></td>
+            <td>zscore, prophet</td>
+          </tr>
+          <tr>
+            <td>08:35:05</td>
+            <td>T001</td>
+            <td><span class="line-badge nsl">NSL</span></td>
+            <td>current_draw</td>
+            <td><span class="severity-badge critical">CRITICAL</span></td>
+            <td><span class="anomaly-score high">0.88</span></td>
+            <td>isolation_forest</td>
+          </tr>
+          <tr>
+            <td>08:24:33</td>
+            <td>T004</td>
+            <td><span class="line-badge ccl">CCL</span></td>
+            <td>door_cycle</td>
+            <td><span class="severity-badge warning">WARNING</span></td>
+            <td><span class="anomaly-score medium">0.67</span></td>
+            <td>stl</td>
+          </tr>
+          <tr>
+            <td>08:06:11</td>
+            <td>T005</td>
+            <td><span class="line-badge ccl">CCL</span></td>
+            <td>vibration</td>
+            <td><span class="severity-badge warning">WARNING</span></td>
+            <td><span class="anomaly-score medium">0.58</span></td>
+            <td>zscore</td>
+          </tr>
+          <tr>
+            <td>07:52:44</td>
+            <td>T002</td>
+            <td><span class="line-badge ewl">EWL</span></td>
+            <td>temperature</td>
+            <td><span class="severity-badge warning">WARNING</span></td>
+            <td><span class="anomaly-score medium">0.54</span></td>
+            <td>prophet</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+</body>
+</html>

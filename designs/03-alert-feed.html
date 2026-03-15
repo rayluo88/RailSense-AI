@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RailSense-AI — Alert Feed</title>
+  <link rel="stylesheet" href="shared-styles.css">
+  <style>
+    /* ─── Filter Chips ─── */
+    .filter-chips {
+      display: flex;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-xl);
+    }
+
+    .chip {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-default);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chip.active-critical {
+      background: var(--critical-bg);
+      border-color: var(--critical-border);
+      color: var(--critical);
+    }
+
+    .chip.active-warning {
+      background: var(--warning-bg);
+      border-color: var(--warning-border);
+      color: var(--warning);
+    }
+
+    .chip.active-all {
+      background: var(--accent-bg);
+      border-color: rgba(37, 99, 235, 0.3);
+      color: var(--accent);
+    }
+
+    .chip-count {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    /* ─── Alert Cards ─── */
+    .alerts-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+
+    .alert-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .alert-card:hover {
+      border-color: var(--border-default);
+    }
+
+    .alert-card.critical-border {
+      border-left: 3px solid var(--critical);
+    }
+
+    .alert-card.warning-border {
+      border-left: 3px solid var(--warning);
+    }
+
+    .alert-card-header {
+      display: flex;
+      align-items: center;
+      padding: var(--space-lg);
+      cursor: pointer;
+      gap: var(--space-md);
+    }
+
+    .alert-severity-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .alert-severity-indicator.critical {
+      background: var(--critical);
+      box-shadow: 0 0 8px var(--critical-glow);
+    }
+
+    .alert-severity-indicator.warning {
+      background: var(--warning);
+    }
+
+    .alert-card-info {
+      flex: 1;
+    }
+
+    .alert-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .alert-card-meta {
+      display: flex;
+      gap: var(--space-lg);
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .alert-card-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .alert-card-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .expand-icon {
+      font-size: 16px;
+      color: var(--text-dim);
+      transition: transform 0.2s ease;
+    }
+
+    .alert-card.expanded .expand-icon {
+      transform: rotate(180deg);
+    }
+
+    /* ─── Expanded Content ─── */
+    .alert-card-body {
+      display: none;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .alert-card.expanded .alert-card-body {
+      display: block;
+    }
+
+    .alert-details {
+      padding: var(--space-lg);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-md);
+    }
+
+    .detail-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .detail-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+    }
+
+    .detail-value {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    /* ─── AI Analysis Section ─── */
+    .ai-section {
+      padding: 0 var(--space-lg) var(--space-lg);
+    }
+
+    .ai-trigger {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: 10px var(--space-md);
+      background: var(--accent-bg);
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      border-radius: var(--radius-md);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      width: fit-content;
+    }
+
+    .ai-trigger:hover {
+      background: rgba(37, 99, 235, 0.15);
+      border-color: rgba(37, 99, 235, 0.4);
+    }
+
+    .ai-trigger .ai-icon {
+      font-size: 14px;
+    }
+
+    .ai-result {
+      margin-top: var(--space-md);
+      padding: var(--space-lg);
+      background: var(--bg-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .ai-result-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-md);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--accent);
+    }
+
+    .ai-result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+    }
+
+    .ai-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .ai-field.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .ai-field-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+    }
+
+    .ai-field-value {
+      font-size: 13px;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .ai-provider-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: var(--space-md);
+      padding-top: var(--space-sm);
+      border-top: 1px solid var(--border-subtle);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <h1>
+        <span class="logo-icon">RS</span>
+        RailSense-AI
+      </h1>
+      <div class="subtitle">Anomaly Detection Platform</div>
+    </div>
+    <div class="sidebar-nav">
+      <a class="nav-item" href="01-live-overview.html">
+        <span class="nav-icon">&#9673;</span>Live Overview
+      </a>
+      <a class="nav-item" href="02-sensor-explorer.html">
+        <span class="nav-icon">&#9636;</span>Sensor Explorer
+      </a>
+      <a class="nav-item active" href="03-alert-feed.html">
+        <span class="nav-icon">&#9888;</span>Alert Feed
+      </a>
+      <a class="nav-item" href="04-model-comparison.html">
+        <span class="nav-icon">&#9881;</span>Model Comparison
+      </a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="system-status">
+        <span class="status-dot"></span>
+        System Online &middot; 44 tests pass
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h2>Alert Feed</h2>
+        <div class="page-subtitle">Review anomaly alerts and request AI-powered analysis</div>
+      </div>
+      <div class="header-time">
+        <div class="time-value">08:47:23</div>
+        <div>15 Mar 2026 &middot; SGT</div>
+      </div>
+    </div>
+
+    <!-- Filter Chips -->
+    <div class="filter-chips">
+      <div class="chip active-all">
+        All <span class="chip-count">15</span>
+      </div>
+      <div class="chip active-critical">
+        Critical <span class="chip-count">3</span>
+      </div>
+      <div class="chip active-warning">
+        Warning <span class="chip-count">12</span>
+      </div>
+    </div>
+
+    <!-- Alert Cards -->
+    <div class="alerts-list">
+
+      <!-- Alert 1: Critical, Expanded with AI Analysis -->
+      <div class="alert-card critical-border expanded">
+        <div class="alert-card-header">
+          <div class="alert-severity-indicator critical"></div>
+          <div class="alert-card-info">
+            <div class="alert-card-title">
+              <span class="severity-badge critical">CRITICAL</span>
+              Vibration spike detected &mdash; potential bearing anomaly
+            </div>
+            <div class="alert-card-meta">
+              <span><span class="line-badge nsl" style="width:28px; height:16px; font-size:8px">NSL</span> T001</span>
+              <span>NS14 Khatib</span>
+              <span>vibration</span>
+              <span>08:45:12 SGT</span>
+            </div>
+          </div>
+          <div class="alert-card-actions">
+            <span class="expand-icon">&#9660;</span>
+          </div>
+        </div>
+        <div class="alert-card-body">
+          <div class="alert-details">
+            <div class="detail-item">
+              <span class="detail-label">Anomaly Score</span>
+              <span class="detail-value" style="color: var(--critical)">0.95</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Line / Station</span>
+              <span class="detail-value">NSL / NS14</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Detection Method</span>
+              <span class="detail-value">zscore, stl (ensemble)</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Sensor Value</span>
+              <span class="detail-value">0.82 (baseline: 0.31)</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Peak Hour</span>
+              <span class="detail-value">Yes (morning rush)</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Correlated Alerts</span>
+              <span class="detail-value" style="color: var(--warning)">current_draw also flagged</span>
+            </div>
+          </div>
+          <div class="ai-section">
+            <div class="ai-result">
+              <div class="ai-result-header">
+                &#9733; AI Agent Assessment
+              </div>
+              <div class="ai-result-grid">
+                <div class="ai-field">
+                  <span class="ai-field-label">Root Cause</span>
+                  <span class="ai-field-value">Likely worn axle bearing on bogie assembly. The vibration pattern (2.6x baseline) combined with elevated current draw suggests mechanical resistance from degraded bearing surfaces.</span>
+                </div>
+                <div class="ai-field">
+                  <span class="ai-field-label">Severity Assessment</span>
+                  <span class="ai-field-value"><span class="severity-badge critical">CRITICAL</span> &mdash; Peak hour occurrence amplifies service disruption risk. Correlated sensor anomalies indicate systemic issue, not sensor noise.</span>
+                </div>
+                <div class="ai-field full-width">
+                  <span class="ai-field-label">Recommended Action</span>
+                  <span class="ai-field-value">Withdraw T001 from service at next terminus (NS28 Marina South Pier). Schedule emergency bearing inspection at Bishan Depot. Check bogie units B1 and B2 for lateral play. If bearing temperature exceeds 85&deg;C, initiate immediate withdrawal.</span>
+                </div>
+                <div class="ai-field full-width">
+                  <span class="ai-field-label">Reasoning</span>
+                  <span class="ai-field-value">Three converging signals support this assessment: (1) vibration amplitude 0.82 vs 0.31 baseline is 2.6x, well above the 2x threshold for bearing concerns; (2) concurrent current draw anomaly suggests motor working harder to overcome mechanical friction; (3) no temperature anomaly yet, indicating early-stage bearing degradation before thermal escalation. Historical pattern: similar signatures on T007 in Nov 2025 preceded bearing failure by 48-72 hours.</span>
+                </div>
+              </div>
+              <div class="ai-provider-tag">
+                Analyzed by DeepSeek (deepseek-chat) &middot; 1.2s &middot; 487 tokens
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert 2: Critical, Collapsed -->
+      <div class="alert-card critical-border">
+        <div class="alert-card-header">
+          <div class="alert-severity-indicator critical"></div>
+          <div class="alert-card-info">
+            <div class="alert-card-title">
+              <span class="severity-badge critical">CRITICAL</span>
+              Temperature exceeds threshold
+            </div>
+            <div class="alert-card-meta">
+              <span><span class="line-badge nsl" style="width:28px; height:16px; font-size:8px">NSL</span> T003</span>
+              <span>NS9 Woodlands</span>
+              <span>temperature</span>
+              <span>08:39:48 SGT</span>
+            </div>
+          </div>
+          <div class="alert-card-actions">
+            <div class="ai-trigger">
+              <span class="ai-icon">&#9733;</span>
+              Request AI Analysis
+            </div>
+            <span class="expand-icon">&#9654;</span>
+          </div>
+        </div>
+        <div class="alert-card-body"></div>
+      </div>
+
+      <!-- Alert 3: Critical, Collapsed -->
+      <div class="alert-card critical-border">
+        <div class="alert-card-header">
+          <div class="alert-severity-indicator critical"></div>
+          <div class="alert-card-info">
+            <div class="alert-card-title">
+              <span class="severity-badge critical">CRITICAL</span>
+              Current draw irregular pattern
+            </div>
+            <div class="alert-card-meta">
+              <span><span class="line-badge nsl" style="width:28px; height:16px; font-size:8px">NSL</span> T001</span>
+              <span>NS14 Khatib</span>
+              <span>current_draw</span>
+              <span>08:35:05 SGT</span>
+            </div>
+          </div>
+          <div class="alert-card-actions">
+            <div class="ai-trigger">
+              <span class="ai-icon">&#9733;</span>
+              Request AI Analysis
+            </div>
+            <span class="expand-icon">&#9654;</span>
+          </div>
+        </div>
+        <div class="alert-card-body"></div>
+      </div>
+
+      <!-- Alert 4: Warning, Collapsed -->
+      <div class="alert-card warning-border">
+        <div class="alert-card-header">
+          <div class="alert-severity-indicator warning"></div>
+          <div class="alert-card-info">
+            <div class="alert-card-title">
+              <span class="severity-badge warning">WARNING</span>
+              Door cycle time trending upward
+            </div>
+            <div class="alert-card-meta">
+              <span><span class="line-badge ccl" style="width:28px; height:16px; font-size:8px">CCL</span> T004</span>
+              <span>CC1 Dhoby Ghaut</span>
+              <span>door_cycle</span>
+              <span>08:24:33 SGT</span>
+            </div>
+          </div>
+          <div class="alert-card-actions">
+            <div class="ai-trigger">
+              <span class="ai-icon">&#9733;</span>
+              Request AI Analysis
+            </div>
+            <span class="expand-icon">&#9654;</span>
+          </div>
+        </div>
+        <div class="alert-card-body"></div>
+      </div>
+
+      <!-- Alert 5: Warning, Collapsed -->
+      <div class="alert-card warning-border">
+        <div class="alert-card-header">
+          <div class="alert-severity-indicator warning"></div>
+          <div class="alert-card-info">
+            <div class="alert-card-title">
+              <span class="severity-badge warning">WARNING</span>
+              Vibration gradual increase over 12h
+            </div>
+            <div class="alert-card-meta">
+              <span><span class="line-badge ccl" style="width:28px; height:16px; font-size:8px">CCL</span> T005</span>
+              <span>CC4 Promenade</span>
+              <span>vibration</span>
+              <span>08:06:11 SGT</span>
+            </div>
+          </div>
+          <div class="alert-card-actions">
+            <div class="ai-trigger">
+              <span class="ai-icon">&#9733;</span>
+              Request AI Analysis
+            </div>
+            <span class="expand-icon">&#9654;</span>
+          </div>
+        </div>
+        <div class="alert-card-body"></div>
+      </div>
+
+    </div>
+  </main>
+
+</body>
+</html>

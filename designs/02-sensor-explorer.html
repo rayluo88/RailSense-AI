@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RailSense-AI — Sensor Explorer</title>
+  <link rel="stylesheet" href="shared-styles.css">
+  <style>
+    /* ─── Filter Controls ─── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin-bottom: var(--space-xl);
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .filter-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+    }
+
+    .filter-select {
+      background: var(--bg-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 8px 32px 8px 12px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .filter-divider {
+      width: 1px;
+      height: 36px;
+      background: var(--border-subtle);
+      margin: 0 var(--space-sm);
+      align-self: flex-end;
+    }
+
+    /* ─── Time-Series Chart ─── */
+    .chart-section {
+      margin-bottom: var(--space-xl);
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-md);
+    }
+
+    .chart-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: var(--space-lg);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 3px;
+      border-radius: 1px;
+    }
+
+    .chart-canvas {
+      position: relative;
+      height: 320px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    /* Simulated chart with SVG */
+    .chart-y-axis {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 30px;
+      width: 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px 8px 0 0;
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .chart-x-axis {
+      position: absolute;
+      bottom: 0;
+      left: 50px;
+      right: 16px;
+      height: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .chart-grid {
+      position: absolute;
+      top: 16px;
+      left: 50px;
+      right: 16px;
+      bottom: 30px;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 59px,
+        rgba(0, 0, 0, 0.05) 59px,
+        rgba(0, 0, 0, 0.05) 60px
+      );
+    }
+
+    /* Anomaly region highlight */
+    .anomaly-region {
+      position: absolute;
+      top: 16px;
+      bottom: 30px;
+      background: rgba(220, 38, 38, 0.06);
+      border-left: 1px dashed var(--critical);
+      border-right: 1px dashed var(--critical);
+    }
+
+    .anomaly-region-label {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--critical);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .chart-svg {
+      position: absolute;
+      top: 16px;
+      left: 50px;
+      right: 16px;
+      bottom: 30px;
+    }
+
+    /* ─── Detection Method Toggles ─── */
+    .method-toggles {
+      display: flex;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+    }
+
+    .toggle-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      border: 1px solid var(--border-default);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      transition: all 0.15s ease;
+    }
+
+    .toggle-chip.active {
+      background: var(--accent-bg);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .toggle-chip .chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .toggle-chip.active .chip-dot.zscore { background: #2563eb; }
+    .toggle-chip.active .chip-dot.stl { background: #a78bfa; }
+    .toggle-chip.active .chip-dot.prophet { background: #f472b6; }
+    .toggle-chip.active .chip-dot.iforest { background: #34d399; }
+
+    /* ─── Anomaly Details Table ─── */
+    .detail-section {
+      margin-top: var(--space-lg);
+    }
+
+    .reading-stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: var(--space-md);
+      margin-bottom: var(--space-xl);
+    }
+
+    .stat-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      text-align: center;
+    }
+
+    .stat-box .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .stat-box .stat-value {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <h1>
+        <span class="logo-icon">RS</span>
+        RailSense-AI
+      </h1>
+      <div class="subtitle">Anomaly Detection Platform</div>
+    </div>
+    <div class="sidebar-nav">
+      <a class="nav-item" href="01-live-overview.html">
+        <span class="nav-icon">&#9673;</span>Live Overview
+      </a>
+      <a class="nav-item active" href="02-sensor-explorer.html">
+        <span class="nav-icon">&#9636;</span>Sensor Explorer
+      </a>
+      <a class="nav-item" href="03-alert-feed.html">
+        <span class="nav-icon">&#9888;</span>Alert Feed
+      </a>
+      <a class="nav-item" href="04-model-comparison.html">
+        <span class="nav-icon">&#9881;</span>Model Comparison
+      </a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="system-status">
+        <span class="status-dot"></span>
+        System Online &middot; 44 tests pass
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h2>Sensor Explorer</h2>
+        <div class="page-subtitle">Drill into individual sensor time-series with anomaly overlays</div>
+      </div>
+      <div class="header-time">
+        <div class="time-value">08:47:23</div>
+        <div>15 Mar 2026 &middot; SGT</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">Train Unit</span>
+        <select class="filter-select">
+          <option>T001 — NSL</option>
+          <option>T002 — EWL</option>
+          <option>T003 — NSL</option>
+          <option>T004 — CCL</option>
+          <option>T005 — CCL</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Sensor Type</span>
+        <select class="filter-select">
+          <option>vibration</option>
+          <option>temperature</option>
+          <option>door_cycle</option>
+          <option>current_draw</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Time Range</span>
+        <select class="filter-select">
+          <option>Last 24 hours</option>
+          <option>Last 48 hours</option>
+          <option>Last 72 hours</option>
+          <option>Last 7 days</option>
+        </select>
+      </div>
+      <div class="filter-divider"></div>
+      <div class="filter-group" style="align-self: flex-end">
+        <button class="btn btn-primary">Apply</button>
+      </div>
+    </div>
+
+    <!-- Reading Stats -->
+    <div class="reading-stats">
+      <div class="stat-box">
+        <div class="stat-label">Data Points</div>
+        <div class="stat-value">576</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Mean</div>
+        <div class="stat-value">0.31</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Std Dev</div>
+        <div class="stat-value">0.048</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Max</div>
+        <div class="stat-value" style="color: var(--critical)">0.82</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Anomalies</div>
+        <div class="stat-value" style="color: var(--warning)">7</div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-section">
+      <div class="chart-canvas">
+        <div class="chart-y-axis">
+          <span>0.90</span>
+          <span>0.70</span>
+          <span>0.50</span>
+          <span>0.30</span>
+          <span>0.10</span>
+        </div>
+        <div class="chart-grid"></div>
+
+        <!-- Anomaly highlighted region -->
+        <div class="anomaly-region" style="left: 68%; right: 15%;">
+          <span class="anomaly-region-label">Anomaly Window</span>
+        </div>
+
+        <!-- Simulated line chart via SVG -->
+        <svg class="chart-svg" viewBox="0 0 800 260" preserveAspectRatio="none">
+          <!-- Normal baseline signal -->
+          <polyline fill="none" stroke="#2563eb" stroke-width="1.5" opacity="0.9"
+            points="0,160 20,155 40,162 60,148 80,158 100,152 120,165 140,150 160,145 180,160 200,155 220,148 240,162 260,150 280,158 300,145 320,160 340,152 360,148 380,155 400,162 420,148 440,155 460,145 480,140 500,130 520,100 540,60 560,30 580,45 600,80 620,110 640,90 660,70 680,120 700,148 720,155 740,158 760,152 780,160 800,155" />
+          <!-- Threshold line -->
+          <line x1="0" y1="85" x2="800" y2="85" stroke="var(--critical)" stroke-width="1" stroke-dasharray="6,4" opacity="0.4" />
+          <text x="805" y="88" fill="var(--critical)" font-size="9" font-family="JetBrains Mono" opacity="0.6">threshold</text>
+          <!-- Anomaly data points -->
+          <circle cx="520" cy="100" r="4" fill="var(--warning)" />
+          <circle cx="540" cy="60" r="4" fill="var(--critical)" />
+          <circle cx="560" cy="30" r="5" fill="var(--critical)" stroke="var(--critical)" stroke-width="2" opacity="0.7" />
+          <circle cx="580" cy="45" r="4" fill="var(--critical)" />
+          <circle cx="640" cy="90" r="4" fill="var(--warning)" />
+          <circle cx="660" cy="70" r="4" fill="var(--critical)" />
+        </svg>
+
+        <div class="chart-x-axis">
+          <span>00:00</span>
+          <span>04:00</span>
+          <span>08:00</span>
+          <span>12:00</span>
+          <span>16:00</span>
+          <span>20:00</span>
+          <span>24:00</span>
+        </div>
+      </div>
+
+      <!-- Method toggles -->
+      <div class="method-toggles">
+        <span class="filter-label" style="align-self:center; margin-right:4px">Overlay:</span>
+        <div class="toggle-chip active">
+          <span class="chip-dot zscore"></span>Z-Score
+        </div>
+        <div class="toggle-chip active">
+          <span class="chip-dot stl"></span>STL
+        </div>
+        <div class="toggle-chip">
+          <span class="chip-dot prophet"></span>Prophet
+        </div>
+        <div class="toggle-chip">
+          <span class="chip-dot iforest"></span>Isolation Forest
+        </div>
+      </div>
+    </div>
+
+    <!-- Anomaly Details Table -->
+    <div class="card detail-section">
+      <div class="card-title">Detected Anomalies in Window</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Value</th>
+            <th>Score</th>
+            <th>Severity</th>
+            <th>Method</th>
+            <th>Z-Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>14:35:00</td>
+            <td>0.82</td>
+            <td><span class="anomaly-score high">0.95</span></td>
+            <td><span class="severity-badge critical">CRITICAL</span></td>
+            <td>zscore, stl</td>
+            <td>4.21</td>
+          </tr>
+          <tr>
+            <td>14:30:00</td>
+            <td>0.74</td>
+            <td><span class="anomaly-score high">0.88</span></td>
+            <td><span class="severity-badge critical">CRITICAL</span></td>
+            <td>zscore</td>
+            <td>3.54</td>
+          </tr>
+          <tr>
+            <td>14:25:00</td>
+            <td>0.68</td>
+            <td><span class="anomaly-score medium">0.72</span></td>
+            <td><span class="severity-badge warning">WARNING</span></td>
+            <td>stl</td>
+            <td>2.89</td>
+          </tr>
+          <tr>
+            <td>14:45:00</td>
+            <td>0.61</td>
+            <td><span class="anomaly-score medium">0.65</span></td>
+            <td><span class="severity-badge warning">WARNING</span></td>
+            <td>zscore</td>
+            <td>2.41</td>
+          </tr>
+          <tr>
+            <td>14:40:00</td>
+            <td>0.55</td>
+            <td><span class="anomaly-score medium">0.58</span></td>
+            <td><span class="severity-badge warning">WARNING</span></td>
+            <td>stl</td>
+            <td>2.12</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+</body>
+</html>

@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RailSense-AI — Model Comparison</title>
+  <link rel="stylesheet" href="shared-styles.css">
+  <style>
+    /* ─── Run Controls ─── */
+    .run-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin-bottom: var(--space-xl);
+      padding: var(--space-lg);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+    }
+
+    .run-controls .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .run-controls .filter-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+    }
+
+    .run-controls .filter-select {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 8px 32px 8px 12px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+
+    .run-controls .filter-select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .run-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: 10px 24px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      border: none;
+      background: var(--accent);
+      color: var(--bg-primary);
+      transition: all 0.15s ease;
+      margin-left: auto;
+    }
+
+    .run-btn:hover {
+      background: #60cafc;
+      transform: translateY(-1px);
+    }
+
+    .run-btn .play-icon {
+      font-size: 12px;
+    }
+
+    /* ─── Side-by-side Metric Panels ─── */
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+      margin-bottom: var(--space-xl);
+    }
+
+    .model-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .model-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-lg);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .model-name {
+      font-size: 16px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .model-tag {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .model-tag.statistical {
+      background: rgba(37, 99, 235, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(37, 99, 235, 0.2);
+    }
+
+    .model-tag.forecast {
+      background: rgba(244, 114, 182, 0.1);
+      color: #f472b6;
+      border: 1px solid rgba(244, 114, 182, 0.2);
+    }
+
+    .model-metrics {
+      padding: var(--space-lg);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-md);
+    }
+
+    .model-metric {
+      text-align: center;
+      padding: var(--space-md);
+      background: var(--bg-primary);
+      border-radius: var(--radius-md);
+    }
+
+    .model-metric-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .model-metric-value {
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .model-metric-value.best {
+      color: var(--healthy);
+    }
+
+    .model-metric-value.worse {
+      color: var(--text-secondary);
+    }
+
+    .model-extra-metrics {
+      padding: 0 var(--space-lg) var(--space-lg);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-sm);
+    }
+
+    .extra-metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px var(--space-md);
+      background: var(--bg-primary);
+      border-radius: var(--radius-sm);
+    }
+
+    .extra-metric-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .extra-metric-value {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* ─── Winner Banner ─── */
+    .winner-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--healthy);
+    }
+
+    .winner-icon {
+      font-size: 14px;
+    }
+
+    /* ─── Chart Section ─── */
+    .charts-section {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-lg);
+    }
+
+    .comparison-chart {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .comparison-chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-lg);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .comparison-chart-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .chart-legend-inline {
+      display: flex;
+      gap: var(--space-lg);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .legend-inline-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-line {
+      width: 16px;
+      height: 2px;
+      border-radius: 1px;
+    }
+
+    .comparison-chart-body {
+      padding: var(--space-lg);
+      position: relative;
+    }
+
+    .chart-overlay {
+      height: 240px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .chart-overlay svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Anomaly window highlight in chart */
+    .chart-anomaly-window {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: rgba(220, 38, 38, 0.06);
+      border-left: 1px dashed var(--critical);
+      border-right: 1px dashed var(--critical);
+    }
+
+    .chart-anomaly-label {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--critical);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    /* ─── Summary Table ─── */
+    .summary-section {
+      margin-top: var(--space-xl);
+    }
+
+    .vs-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 20px;
+      border-radius: var(--radius-sm);
+      font-size: 9px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      background: var(--bg-primary);
+      border: 1px solid var(--border-subtle);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <h1>
+        <span class="logo-icon">RS</span>
+        RailSense-AI
+      </h1>
+      <div class="subtitle">Anomaly Detection Platform</div>
+    </div>
+    <div class="sidebar-nav">
+      <a class="nav-item" href="01-live-overview.html">
+        <span class="nav-icon">&#9673;</span>Live Overview
+      </a>
+      <a class="nav-item" href="02-sensor-explorer.html">
+        <span class="nav-icon">&#9636;</span>Sensor Explorer
+      </a>
+      <a class="nav-item" href="03-alert-feed.html">
+        <span class="nav-icon">&#9888;</span>Alert Feed
+      </a>
+      <a class="nav-item active" href="04-model-comparison.html">
+        <span class="nav-icon">&#9881;</span>Model Comparison
+      </a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="system-status">
+        <span class="status-dot"></span>
+        System Online &middot; 44 tests pass
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h2>Model Comparison</h2>
+        <div class="page-subtitle">Compare STL decomposition vs Prophet forecast anomaly detection</div>
+      </div>
+      <div class="header-time">
+        <div class="time-value">08:47:23</div>
+        <div>15 Mar 2026 &middot; SGT</div>
+      </div>
+    </div>
+
+    <!-- Run Controls -->
+    <div class="run-controls">
+      <div class="filter-group">
+        <span class="filter-label">Train Unit</span>
+        <select class="filter-select">
+          <option>T001 — NSL</option>
+          <option>T002 — EWL</option>
+          <option>T003 — NSL</option>
+          <option>T004 — CCL</option>
+          <option>T005 — CCL</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Sensor Type</span>
+        <select class="filter-select">
+          <option>vibration</option>
+          <option>temperature</option>
+          <option>door_cycle</option>
+          <option>current_draw</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Time Range</span>
+        <select class="filter-select">
+          <option>Last 72 hours</option>
+          <option>Last 24 hours</option>
+          <option>Last 7 days</option>
+        </select>
+      </div>
+      <button class="run-btn">
+        <span class="play-icon">&#9654;</span>
+        Run Comparison
+      </button>
+    </div>
+
+    <!-- Side-by-Side Model Panels -->
+    <div class="comparison-grid">
+      <!-- STL Panel -->
+      <div class="model-panel">
+        <div class="model-panel-header">
+          <div class="model-name">
+            STL Decomposition
+            <span class="model-tag statistical">Statistical</span>
+          </div>
+          <div class="winner-indicator">
+            <span class="winner-icon">&#9733;</span>
+            Higher F1
+          </div>
+        </div>
+        <div class="model-metrics">
+          <div class="model-metric">
+            <div class="model-metric-label">Precision</div>
+            <div class="model-metric-value best">0.89</div>
+          </div>
+          <div class="model-metric">
+            <div class="model-metric-label">Recall</div>
+            <div class="model-metric-value">0.82</div>
+          </div>
+          <div class="model-metric">
+            <div class="model-metric-label">F1 Score</div>
+            <div class="model-metric-value best">0.85</div>
+          </div>
+        </div>
+        <div class="model-extra-metrics">
+          <div class="extra-metric">
+            <span class="extra-metric-label">Compute Time</span>
+            <span class="extra-metric-value" style="color: var(--healthy)">0.12s</span>
+          </div>
+          <div class="extra-metric">
+            <span class="extra-metric-label">Total Flagged</span>
+            <span class="extra-metric-value">14</span>
+          </div>
+          <div class="extra-metric">
+            <span class="extra-metric-label">True Positives</span>
+            <span class="extra-metric-value">9</span>
+          </div>
+          <div class="extra-metric">
+            <span class="extra-metric-label">False Positives</span>
+            <span class="extra-metric-value">1</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prophet Panel -->
+      <div class="model-panel">
+        <div class="model-panel-header">
+          <div class="model-name">
+            Prophet Forecast
+            <span class="model-tag forecast">Forecast</span>
+          </div>
+          <div class="winner-indicator">
+            <span class="winner-icon">&#9733;</span>
+            Higher Recall
+          </div>
+        </div>
+        <div class="model-metrics">
+          <div class="model-metric">
+            <div class="model-metric-label">Precision</div>
+            <div class="model-metric-value worse">0.76</div>
+          </div>
+          <div class="model-metric">
+            <div class="model-metric-label">Recall</div>
+            <div class="model-metric-value best">0.91</div>
+          </div>
+          <div class="model-metric">
+            <div class="model-metric-label">F1 Score</div>
+            <div class="model-metric-value worse">0.83</div>
+          </div>
+        </div>
+        <div class="model-extra-metrics">
+          <div class="extra-metric">
+            <span class="extra-metric-label">Compute Time</span>
+            <span class="extra-metric-value" style="color: var(--warning)">1.84s</span>
+          </div>
+          <div class="extra-metric">
+            <span class="extra-metric-label">Total Flagged</span>
+            <span class="extra-metric-value">18</span>
+          </div>
+          <div class="extra-metric">
+            <span class="extra-metric-label">True Positives</span>
+            <span class="extra-metric-value">10</span>
+          </div>
+          <div class="extra-metric">
+            <span class="extra-metric-label">False Positives</span>
+            <span class="extra-metric-value">3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart: Predictions Overlay -->
+    <div class="charts-section">
+      <div class="comparison-chart">
+        <div class="comparison-chart-header">
+          <h3>Sensor Data with Anomaly Predictions</h3>
+          <div class="chart-legend-inline">
+            <div class="legend-inline-item">
+              <div class="legend-line" style="background: var(--accent)"></div>
+              Sensor Value
+            </div>
+            <div class="legend-inline-item">
+              <div class="legend-line" style="background: #2563eb; opacity: 0.5"></div>
+              STL Predicted
+            </div>
+            <div class="legend-inline-item">
+              <div class="legend-line" style="background: #f472b6; opacity: 0.5"></div>
+              Prophet Predicted
+            </div>
+            <div class="legend-inline-item">
+              <div class="legend-line" style="background: var(--critical); height: 8px; opacity: 0.3; border-radius: 2px"></div>
+              Anomaly Window
+            </div>
+          </div>
+        </div>
+        <div class="comparison-chart-body">
+          <div class="chart-overlay">
+            <!-- Anomaly window -->
+            <div class="chart-anomaly-window" style="left: 62%; right: 18%;">
+              <span class="chart-anomaly-label">Known Anomaly</span>
+            </div>
+
+            <svg viewBox="0 0 900 220" preserveAspectRatio="none">
+              <!-- Grid lines -->
+              <line x1="0" y1="55" x2="900" y2="55" stroke="var(--border-subtle)" stroke-width="0.5" />
+              <line x1="0" y1="110" x2="900" y2="110" stroke="var(--border-subtle)" stroke-width="0.5" />
+              <line x1="0" y1="165" x2="900" y2="165" stroke="var(--border-subtle)" stroke-width="0.5" />
+
+              <!-- STL predicted (dashed blue) -->
+              <polyline fill="none" stroke="#2563eb" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"
+                points="0,145 40,148 80,142 120,150 160,145 200,140 240,148 280,142 320,145 360,148 400,142 440,145 480,140 520,135 560,128 600,125 640,130 680,140 720,145 760,148 800,145 840,142 880,148" />
+
+              <!-- Prophet predicted (dashed pink) -->
+              <polyline fill="none" stroke="#f472b6" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"
+                points="0,148 40,145 80,150 120,142 160,148 200,145 240,142 280,148 320,142 360,145 400,148 440,142 480,138 520,130 560,120 600,115 640,125 680,138 720,142 760,145 800,148 840,145 880,142" />
+
+              <!-- Actual sensor data (solid cyan) -->
+              <polyline fill="none" stroke="#2563eb" stroke-width="2" opacity="0.9"
+                points="0,148 40,142 80,150 120,145 160,148 200,142 240,150 280,145 320,148 360,142 400,148 440,145 480,135 520,110 540,80 560,45 580,30 600,50 620,70 640,95 660,75 680,60 700,100 720,135 740,142 760,148 780,145 800,148 840,142 880,145" />
+
+              <!-- STL anomaly markers (blue circles) -->
+              <circle cx="540" cy="80" r="4" fill="none" stroke="#2563eb" stroke-width="2" />
+              <circle cx="560" cy="45" r="4" fill="none" stroke="#2563eb" stroke-width="2" />
+              <circle cx="580" cy="30" r="5" fill="none" stroke="#2563eb" stroke-width="2" />
+              <circle cx="600" cy="50" r="4" fill="none" stroke="#2563eb" stroke-width="2" />
+              <circle cx="660" cy="75" r="4" fill="none" stroke="#2563eb" stroke-width="2" />
+              <circle cx="680" cy="60" r="4" fill="none" stroke="#2563eb" stroke-width="2" />
+
+              <!-- Prophet anomaly markers (pink squares) -->
+              <rect x="517" y="107" width="6" height="6" fill="none" stroke="#f472b6" stroke-width="2" />
+              <rect x="537" y="77" width="6" height="6" fill="none" stroke="#f472b6" stroke-width="2" />
+              <rect x="557" y="42" width="6" height="6" fill="none" stroke="#f472b6" stroke-width="2" />
+              <rect x="577" y="27" width="6" height="6" fill="none" stroke="#f472b6" stroke-width="2" />
+              <rect x="597" y="47" width="6" height="6" fill="none" stroke="#f472b6" stroke-width="2" />
+              <rect x="617" y="67" width="6" height="6" fill="none" stroke="#f472b6" stroke-width="2" />
+              <rect x="637" y="92" width="6" height="6" fill="none" stroke="#f472b6" stroke-width="2" />
+              <rect x="657" y="72" width="6" height="6" fill="none" stroke="#f472b6" stroke-width="2" />
+              <rect x="677" y="57" width="6" height="6" fill="none" stroke="#f472b6" stroke-width="2" />
+              <rect x="697" y="97" width="6" height="6" fill="none" stroke="#f472b6" stroke-width="2" />
+
+              <!-- Residual band (STL) -->
+              <polyline fill="rgba(37,99,235,0.08)" stroke="none"
+                points="480,125 520,100 540,70 560,35 580,20 600,40 620,60 640,85 660,65 680,50 700,90 720,125 720,155 700,155 680,155 660,155 640,155 620,155 600,155 580,155 560,155 540,155 520,155 480,155" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Comparison Table -->
+      <div class="card summary-section">
+        <div class="card-title">Detailed Comparison Summary</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>STL Decomposition</th>
+              <th></th>
+              <th>Prophet Forecast</th>
+              <th>Winner</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color: var(--text-primary); font-family: var(--font-sans)">Precision</td>
+              <td style="color: var(--healthy); font-weight: 600">0.89</td>
+              <td><span class="vs-badge">vs</span></td>
+              <td>0.76</td>
+              <td><span class="severity-badge healthy">STL</span></td>
+            </tr>
+            <tr>
+              <td style="color: var(--text-primary); font-family: var(--font-sans)">Recall</td>
+              <td>0.82</td>
+              <td><span class="vs-badge">vs</span></td>
+              <td style="color: var(--healthy); font-weight: 600">0.91</td>
+              <td><span class="severity-badge healthy">Prophet</span></td>
+            </tr>
+            <tr>
+              <td style="color: var(--text-primary); font-family: var(--font-sans)">F1 Score</td>
+              <td style="color: var(--healthy); font-weight: 600">0.85</td>
+              <td><span class="vs-badge">vs</span></td>
+              <td>0.83</td>
+              <td><span class="severity-badge healthy">STL</span></td>
+            </tr>
+            <tr>
+              <td style="color: var(--text-primary); font-family: var(--font-sans)">Computation Time</td>
+              <td style="color: var(--healthy); font-weight: 600">0.12s</td>
+              <td><span class="vs-badge">vs</span></td>
+              <td style="color: var(--warning)">1.84s</td>
+              <td><span class="severity-badge healthy">STL</span></td>
+            </tr>
+            <tr>
+              <td style="color: var(--text-primary); font-family: var(--font-sans)">False Positive Rate</td>
+              <td style="color: var(--healthy); font-weight: 600">7.1%</td>
+              <td><span class="vs-badge">vs</span></td>
+              <td>16.7%</td>
+              <td><span class="severity-badge healthy">STL</span></td>
+            </tr>
+            <tr>
+              <td style="color: var(--text-primary); font-family: var(--font-sans)">Missed Anomalies</td>
+              <td>2</td>
+              <td><span class="vs-badge">vs</span></td>
+              <td style="color: var(--healthy); font-weight: 600">1</td>
+              <td><span class="severity-badge healthy">Prophet</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

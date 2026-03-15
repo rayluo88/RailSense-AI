@@ -1,10 +1,12 @@
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from src.api.schemas import AnomalyEventOut, SensorReadingOut
-from src.db.models import AnomalyEvent, SensorReading
+from src.agent.provider import AnomalyContext, get_provider
+from src.api.schemas import AgentAssessmentOut, AnomalyEventOut, SensorReadingOut
+from src.config import settings
+from src.db.models import AgentAssessment as AgentAssessmentModel, AnomalyEvent, SensorReading
 from src.db.session import get_db
 
 app = FastAPI(title="RailSense-AI", version="0.1.0")
@@ -49,3 +51,62 @@ def get_anomalies(
     if train_id:
         q = q.filter(AnomalyEvent.train_id == train_id)
     return q.order_by(AnomalyEvent.timestamp.desc()).limit(limit).all()
+
+
+@app.post("/api/assess/{anomaly_event_id}", response_model=AgentAssessmentOut)
+async def assess_anomaly(anomaly_event_id: int, db: Session = Depends(get_db)):
+    event = db.query(AnomalyEvent).filter(AnomalyEvent.id == anomaly_event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Anomaly event not found")
+
+    recent = (
+        db.query(SensorReading)
+        .filter(SensorReading.train_id == event.train_id, SensorReading.sensor_type == event.sensor_type)
+        .filter(SensorReading.timestamp <= event.timestamp)
+        .order_by(SensorReading.timestamp.desc())
+        .limit(5)
+        .all()
+    )
+
+    context = AnomalyContext(
+        timestamp=event.timestamp,
+        train_id=event.train_id,
+        line_id=event.line_id,
+        station_id=event.station_id,
+        sensor_type=event.sensor_type.value,
+        value=event.value,
+        anomaly_score=event.anomaly_score,
+        detection_methods=[event.detection_method],
+        is_peak_hour=event.timestamp.hour in {7, 8, 9, 17, 18, 19},
+        recent_history=[{"timestamp": str(r.timestamp), "value": r.value} for r in recent],
+        correlated_sensors=[],
+    )
+
+    provider = get_provider(settings.llm_provider)
+    assessment = await provider.analyze_anomaly(context)
+
+    db_assessment = AgentAssessmentModel(
+        anomaly_event_id=event.id,
+        llm_provider=settings.llm_provider,
+        root_cause=assessment.root_cause,
+        severity_override=assessment.severity,
+        recommended_action=assessment.recommended_action,
+        reasoning=assessment.reasoning,
+    )
+    db.add(db_assessment)
+    db.commit()
+    db.refresh(db_assessment)
+    return db_assessment
+
+
+@app.get("/api/assessments", response_model=list[AgentAssessmentOut])
+def get_assessments(
+    limit: int = Query(default=50, le=200),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(AgentAssessmentModel)
+        .order_by(AgentAssessmentModel.created_at.desc())
+        .limit(limit)
+        .all()
+    )

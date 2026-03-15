@@ -1069,7 +1069,7 @@ git commit -m "feat: Isolation Forest multivariate anomaly detector"
 
 ---
 
-## Task 7 [Phase 2 — Detection Engine]: STL Decomposition Detector
+## Task 7 [Phase 2 — Detection Engine]: STL Decomposition Detector ✅
 
 **Files:**
 - Create: `railsense-ai/src/detection/stl_detector.py`
@@ -1183,7 +1183,7 @@ git commit -m "feat: STL decomposition anomaly detector"
 
 ---
 
-## Task 8 [Phase 2 — Detection Engine]: Prophet Detector
+## Task 8 [Phase 2 — Detection Engine]: Prophet Detector ✅
 
 **Files:**
 - Create: `railsense-ai/src/detection/prophet_detector.py`
@@ -1300,7 +1300,7 @@ git commit -m "feat: Prophet forecast-based anomaly detector"
 
 ---
 
-## Task 9 [Phase 2 — Detection Engine]: Ensemble Scoring
+## Task 9 [Phase 2 — Detection Engine]: Ensemble Scoring ✅
 
 **Files:**
 - Create: `railsense-ai/src/detection/ensemble.py`
@@ -1421,13 +1421,13 @@ git commit -m "feat: ensemble scorer combining multiple detection methods"
 
 ---
 
-## Task 10 [Phase 4 — AI Agent]: LLM Provider Abstraction & Claude Implementation
+## Task 10 [Phase 4 — AI Agent]: LLM Provider Abstraction & DeepSeek Implementation ✅
 
 **Files:**
 - Create: `railsense-ai/src/agent/__init__.py`
 - Create: `railsense-ai/src/agent/provider.py`
 - Create: `railsense-ai/src/agent/prompts.py`
-- Create: `railsense-ai/src/agent/claude_provider.py`
+- Create: `railsense-ai/src/agent/deepseek_provider.py`
 - Test: `railsense-ai/tests/test_agent.py`
 
 **Step 1: Create `src/agent/provider.py`** — protocol + data models
@@ -1468,7 +1468,10 @@ class LLMProvider(Protocol):
 
 
 def get_provider(provider_name: str) -> LLMProvider:
-    if provider_name == "claude":
+    if provider_name == "deepseek":
+        from src.agent.deepseek_provider import DeepSeekProvider
+        return DeepSeekProvider()
+    elif provider_name == "claude":
         from src.agent.claude_provider import ClaudeProvider
         return ClaudeProvider()
     elif provider_name == "openai":
@@ -1520,7 +1523,173 @@ Respond in this exact JSON format:
 {{"root_cause": "...", "severity": "critical|warning|monitor", "recommended_action": "...", "reasoning": "..."}}"""
 ```
 
-**Step 3: Create `src/agent/claude_provider.py`**
+**Step 3: Create `src/agent/deepseek_provider.py`**
+
+DeepSeek uses an OpenAI-compatible API, so we use the `openai` SDK pointed at `https://api.deepseek.com`.
+
+```python
+import json
+
+import openai
+
+from src.agent.prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+from src.agent.provider import AgentAssessment, AnomalyContext
+from src.config import settings
+
+
+class DeepSeekProvider:
+    def __init__(self):
+        self.client = openai.OpenAI(
+            api_key=settings.deepseek_api_key,
+            base_url="https://api.deepseek.com",
+        )
+
+    async def analyze_anomaly(self, context: AnomalyContext) -> AgentAssessment:
+        prompt = USER_PROMPT_TEMPLATE.format(
+            train_id=context.train_id,
+            line_id=context.line_id,
+            station_id=context.station_id,
+            timestamp=context.timestamp.isoformat(),
+            sensor_type=context.sensor_type,
+            value=context.value,
+            anomaly_score=context.anomaly_score,
+            detection_methods=", ".join(context.detection_methods),
+            is_peak_hour=context.is_peak_hour,
+            recent_history=json.dumps(context.recent_history, indent=2, default=str),
+            correlated_sensors=json.dumps(context.correlated_sensors, indent=2, default=str),
+        )
+
+        response = self.client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=500,
+            response_format={"type": "json_object"},
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        return AgentAssessment(
+            root_cause=result["root_cause"],
+            severity=result["severity"],
+            recommended_action=result["recommended_action"],
+            reasoning=result["reasoning"],
+        )
+```
+
+**Step 4: Update `src/config.py`** — add `deepseek_api_key` field
+
+Add to Settings class:
+```python
+    deepseek_api_key: str = ""
+```
+
+**Step 5: Update `.env.example`** — add `DEEPSEEK_API_KEY=`
+
+**Step 6: Update default in `.env.example`** — change `LLM_PROVIDER=deepseek` (DeepSeek as default)
+
+**Step 7: Write tests `tests/test_agent.py`**
+
+```python
+from datetime import datetime
+
+from src.agent.provider import AnomalyContext, AgentAssessment, get_provider
+from src.agent.prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+
+
+def test_anomaly_context_creation():
+    ctx = AnomalyContext(
+        timestamp=datetime(2026, 3, 14, 8, 30),
+        train_id="T001",
+        line_id="NSL",
+        station_id="NS1",
+        sensor_type="vibration",
+        value=0.8,
+        anomaly_score=0.92,
+        detection_methods=["zscore", "isolation_forest"],
+        is_peak_hour=True,
+        recent_history=[],
+        correlated_sensors=[],
+    )
+    assert ctx.is_peak_hour is True
+    assert ctx.anomaly_score == 0.92
+
+
+def test_agent_assessment_creation():
+    assessment = AgentAssessment(
+        root_cause="Bearing wear",
+        severity="critical",
+        recommended_action="Immediate inspection",
+        reasoning="High vibration during peak hours",
+    )
+    assert assessment.severity == "critical"
+
+
+def test_get_provider_deepseek():
+    provider = get_provider("deepseek")
+    assert hasattr(provider, "analyze_anomaly")
+
+
+def test_get_provider_claude():
+    provider = get_provider("claude")
+    assert hasattr(provider, "analyze_anomaly")
+
+
+def test_get_provider_unknown():
+    try:
+        get_provider("unknown")
+        assert False, "Should have raised ValueError"
+    except ValueError:
+        pass
+
+
+def test_prompt_template_formats():
+    ctx = AnomalyContext(
+        timestamp=datetime(2026, 3, 14, 8, 30),
+        train_id="T001", line_id="NSL", station_id="NS1",
+        sensor_type="vibration", value=0.8, anomaly_score=0.92,
+        detection_methods=["zscore"], is_peak_hour=True,
+        recent_history=[], correlated_sensors=[],
+    )
+    prompt = USER_PROMPT_TEMPLATE.format(
+        train_id=ctx.train_id, line_id=ctx.line_id, station_id=ctx.station_id,
+        timestamp=ctx.timestamp.isoformat(), sensor_type=ctx.sensor_type,
+        value=ctx.value, anomaly_score=ctx.anomaly_score,
+        detection_methods=", ".join(ctx.detection_methods),
+        is_peak_hour=ctx.is_peak_hour, recent_history="[]", correlated_sensors="[]",
+    )
+    assert "T001" in prompt
+    assert "vibration" in prompt
+    assert SYSTEM_PROMPT.startswith("You are a railway")
+```
+
+**Step 8: Run tests**
+
+```bash
+pytest tests/test_agent.py -v
+```
+
+Expected: 6 PASS
+
+**Step 9: Commit**
+
+```bash
+git add .
+git commit -m "feat: LLM provider abstraction with DeepSeek implementation and prompts"
+```
+
+---
+
+## Task 11 [Phase 4 — AI Agent]: Claude, OpenAI & Ollama Providers ✅
+
+**Files:**
+- Create: `railsense-ai/src/agent/claude_provider.py`
+- Create: `railsense-ai/src/agent/openai_provider.py`
+- Create: `railsense-ai/src/agent/ollama_provider.py`
+- Test: `railsense-ai/tests/test_providers.py`
+
+**Step 0: Implement `src/agent/claude_provider.py`**
 
 ```python
 import json
@@ -1566,100 +1735,6 @@ class ClaudeProvider:
             reasoning=result["reasoning"],
         )
 ```
-
-**Step 4: Write tests `tests/test_agent.py`**
-
-```python
-from datetime import datetime
-
-from src.agent.provider import AnomalyContext, AgentAssessment, get_provider
-from src.agent.prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
-
-
-def test_anomaly_context_creation():
-    ctx = AnomalyContext(
-        timestamp=datetime(2026, 3, 14, 8, 30),
-        train_id="T001",
-        line_id="NSL",
-        station_id="NS1",
-        sensor_type="vibration",
-        value=0.8,
-        anomaly_score=0.92,
-        detection_methods=["zscore", "isolation_forest"],
-        is_peak_hour=True,
-        recent_history=[],
-        correlated_sensors=[],
-    )
-    assert ctx.is_peak_hour is True
-    assert ctx.anomaly_score == 0.92
-
-
-def test_agent_assessment_creation():
-    assessment = AgentAssessment(
-        root_cause="Bearing wear",
-        severity="critical",
-        recommended_action="Immediate inspection",
-        reasoning="High vibration during peak hours",
-    )
-    assert assessment.severity == "critical"
-
-
-def test_get_provider_claude():
-    provider = get_provider("claude")
-    assert hasattr(provider, "analyze_anomaly")
-
-
-def test_get_provider_unknown():
-    try:
-        get_provider("unknown")
-        assert False, "Should have raised ValueError"
-    except ValueError:
-        pass
-
-
-def test_prompt_template_formats():
-    ctx = AnomalyContext(
-        timestamp=datetime(2026, 3, 14, 8, 30),
-        train_id="T001", line_id="NSL", station_id="NS1",
-        sensor_type="vibration", value=0.8, anomaly_score=0.92,
-        detection_methods=["zscore"], is_peak_hour=True,
-        recent_history=[], correlated_sensors=[],
-    )
-    prompt = USER_PROMPT_TEMPLATE.format(
-        train_id=ctx.train_id, line_id=ctx.line_id, station_id=ctx.station_id,
-        timestamp=ctx.timestamp.isoformat(), sensor_type=ctx.sensor_type,
-        value=ctx.value, anomaly_score=ctx.anomaly_score,
-        detection_methods=", ".join(ctx.detection_methods),
-        is_peak_hour=ctx.is_peak_hour, recent_history="[]", correlated_sensors="[]",
-    )
-    assert "T001" in prompt
-    assert "vibration" in prompt
-    assert SYSTEM_PROMPT.startswith("You are a railway")
-```
-
-**Step 5: Run tests**
-
-```bash
-pytest tests/test_agent.py -v
-```
-
-Expected: 5 PASS
-
-**Step 6: Commit**
-
-```bash
-git add .
-git commit -m "feat: LLM provider abstraction with Claude implementation and prompts"
-```
-
----
-
-## Task 11 [Phase 4 — AI Agent]: OpenAI & Ollama Providers
-
-**Files:**
-- Create: `railsense-ai/src/agent/openai_provider.py`
-- Create: `railsense-ai/src/agent/ollama_provider.py`
-- Test: `railsense-ai/tests/test_providers.py`
 
 **Step 1: Implement `src/agent/openai_provider.py`**
 
@@ -1759,6 +1834,11 @@ class OllamaProvider:
 from src.agent.provider import get_provider
 
 
+def test_get_deepseek_provider():
+    p = get_provider("deepseek")
+    assert type(p).__name__ == "DeepSeekProvider"
+
+
 def test_get_claude_provider():
     p = get_provider("claude")
     assert type(p).__name__ == "ClaudeProvider"
@@ -1780,18 +1860,18 @@ def test_get_ollama_provider():
 pytest tests/test_providers.py -v
 ```
 
-Expected: 3 PASS
+Expected: 4 PASS
 
 **Step 5: Commit**
 
 ```bash
 git add .
-git commit -m "feat: OpenAI and Ollama LLM provider implementations"
+git commit -m "feat: Claude, OpenAI and Ollama LLM provider implementations"
 ```
 
 ---
 
-## Task 12 [Phase 4 — AI Agent]: Agent Assessment API Endpoint
+## Task 12 [Phase 4 — AI Agent]: Agent Assessment API Endpoint ✅
 
 **Files:**
 - Modify: `railsense-ai/src/api/main.py`
@@ -1881,7 +1961,7 @@ git commit -m "feat: anomaly assessment API endpoint with LLM agent integration"
 
 ---
 
-## Task 13 [Phase 3 — LTA Integration]: LTA DataMall API Client
+## Task 13 [Phase 3 — LTA Integration]: LTA DataMall API Client ✅
 
 **Files:**
 - Create: `railsense-ai/src/ingestion/lta_client.py`
@@ -2007,7 +2087,7 @@ git commit -m "feat: LTA DataMall API client for train arrivals and disruptions"
 
 ---
 
-## Task 14 [Phase 3 — LTA Integration]: Detection Pipeline Runner
+## Task 14 [Phase 3 — LTA Integration]: Detection Pipeline Runner ✅
 
 **Files:**
 - Create: `railsense-ai/src/detection/pipeline.py`
@@ -2156,22 +2236,21 @@ git commit -m "feat: detection pipeline runner with ensemble integration"
 
 ---
 
-## Task 14b [Phase 5 — Dashboard]: Dashboard UI Design with Pencil
+## Task 14b [Phase 5 — Dashboard]: Dashboard UI Design with frontend-design skill ✅
 
 **Files:**
-- Create: `railsense-ai/designs/dashboard.pen` (via Pencil MCP tools)
+- Create: `railsense-ai/designs/` — HTML mockups for all 4 dashboard views
 
 **Prerequisites:** Complete before Tasks 15-18. All dashboard implementation must follow the designs produced here.
 
-**Process:** Use the Pencil MCP extension to design all four dashboard views before any Streamlit implementation begins. This ensures a cohesive visual language across pages.
+**Process:** Use the `frontend-design` skill to design all four dashboard views as standalone HTML pages before any Streamlit implementation begins. This ensures a cohesive visual language across pages. The skill will handle style selection, layout, and component design.
 
-**Step 1: Get design guidelines and style guide**
+**Step 1: Invoke frontend-design skill**
 
-Use `get_guidelines(topic="web-app")` to load Pencil's web application design rules. Then use `get_style_guide_tags` and `get_style_guide` to select a style appropriate for an enterprise monitoring/operations dashboard (dark theme preferred — common for NOC/operations dashboards).
+Use `/frontend-design` to design an enterprise monitoring/operations dashboard for a railway anomaly detection platform. Request a dark theme (common for NOC/operations dashboards). Design all 4 pages as production-grade HTML mockups.
 
 **Step 2: Design the Live Overview page**
 
-Create a design in the `.pen` file showing:
 - Navigation sidebar with 4 page links
 - 4 metric summary cards in a row (Critical Alerts, Warnings, Affected Trains, System Health %)
 - MRT line health map with color-coded status per line segment
@@ -2179,7 +2258,6 @@ Create a design in the `.pen` file showing:
 
 **Step 3: Design the Sensor Explorer page**
 
-Create a design showing:
 - Train unit selector dropdown and sensor type selector
 - Large time-series line chart with anomaly regions highlighted (red shading)
 - Detection method toggle overlay controls
@@ -2187,7 +2265,6 @@ Create a design showing:
 
 **Step 4: Design the Alert Feed page**
 
-Create a design showing:
 - Severity filter chips (critical, warning)
 - Expandable alert cards with severity badge (red/yellow), train ID, sensor type, timestamp
 - Expanded card showing: anomaly score, line/station, detection method
@@ -2196,7 +2273,6 @@ Create a design showing:
 
 **Step 5: Design the Model Comparison page**
 
-Create a design showing:
 - "Run Comparison" button
 - Side-by-side metric panels for STL vs Prophet (precision, recall, F1, computation time, total flagged)
 - Sensor data chart with anomaly window highlighted
@@ -2204,23 +2280,23 @@ Create a design showing:
 
 **Step 6: Validate designs**
 
-Use `get_screenshot` to capture each designed view. Review for visual consistency, spacing, and information hierarchy. Iterate as needed.
+Open each HTML mockup in the browser, review for visual consistency, spacing, and information hierarchy. Iterate as needed.
 
 **Step 7: Commit**
 
 ```bash
 git add .
-git commit -m "design: dashboard UI mockups for all 4 views using Pencil"
+git commit -m "design: dashboard UI mockups for all 4 views using frontend-design skill"
 ```
 
 ---
 
-## Task 15 [Phase 5 — Dashboard]: Streamlit Dashboard — Live Overview
+## Task 15 [Phase 5 — Dashboard]: Streamlit Dashboard — Live Overview ✅
 
 **Files:**
 - Modify: `railsense-ai/src/dashboard/app.py`
 
-**Design reference:** Follow the Live Overview design from `railsense-ai/designs/dashboard.pen` (Task 14b). Match the layout, component placement, and visual hierarchy from the Pencil mockup.
+**Design reference:** Follow the Live Overview HTML mockup from `railsense-ai/designs/` (Task 14b). Match the layout, component placement, and visual hierarchy from the frontend-design mockup.
 
 **Step 1: Implement the Live Overview page**
 
@@ -2308,12 +2384,12 @@ git commit -m "feat: Streamlit dashboard with Live Overview page"
 
 ---
 
-## Task 16 [Phase 5 — Dashboard]: Streamlit Dashboard — Sensor Explorer
+## Task 16 [Phase 5 — Dashboard]: Streamlit Dashboard — Sensor Explorer ✅
 
 **Files:**
 - Modify: `railsense-ai/src/dashboard/app.py`
 
-**Design reference:** Follow the Sensor Explorer design from `railsense-ai/designs/dashboard.pen` (Task 14b). Match the layout, component placement, and visual hierarchy from the Pencil mockup.
+**Design reference:** Follow the Sensor Explorer HTML mockup from `railsense-ai/designs/` (Task 14b). Match the layout, component placement, and visual hierarchy from the frontend-design mockup.
 
 **Step 1: Replace the Sensor Explorer placeholder** with:
 
@@ -2362,13 +2438,13 @@ git commit -m "feat: Sensor Explorer page with anomaly overlay"
 
 ---
 
-## Task 17 [Phase 5 — Dashboard]: Streamlit Dashboard — Alert Feed
+## Task 17 [Phase 5 — Dashboard]: Streamlit Dashboard — Alert Feed ✅
 
 **Files:**
 - Modify: `railsense-ai/src/dashboard/app.py`
 - Modify: `railsense-ai/src/api/main.py` (add assessments GET endpoint)
 
-**Design reference:** Follow the Alert Feed design from `railsense-ai/designs/dashboard.pen` (Task 14b). Match the layout, component placement, and visual hierarchy from the Pencil mockup.
+**Design reference:** Follow the Alert Feed HTML mockup from `railsense-ai/designs/` (Task 14b). Match the layout, component placement, and visual hierarchy from the frontend-design mockup.
 
 **Step 1: Add GET assessments endpoint to `src/api/main.py`**
 
@@ -2434,14 +2510,14 @@ git commit -m "feat: Alert Feed page with inline LLM agent analysis"
 
 ---
 
-## Task 18 [Phase 5 — Dashboard]: Streamlit Dashboard — Model Comparison
+## Task 18 [Phase 5 — Dashboard]: Streamlit Dashboard — Model Comparison ✅
 
 **Files:**
 - Modify: `railsense-ai/src/dashboard/app.py`
 - Create: `railsense-ai/src/detection/compare.py`
 - Test: `railsense-ai/tests/test_compare.py`
 
-**Design reference:** Follow the Model Comparison design from `railsense-ai/designs/dashboard.pen` (Task 14b). Match the layout, component placement, and visual hierarchy from the Pencil mockup.
+**Design reference:** Follow the Model Comparison HTML mockup from `railsense-ai/designs/` (Task 14b). Match the layout, component placement, and visual hierarchy from the frontend-design mockup.
 
 **Step 1: Write failing test `tests/test_compare.py`**
 
@@ -2567,7 +2643,7 @@ git commit -m "feat: Model Comparison page with STL vs Prophet metrics"
 
 ---
 
-## Task 19 [Phase 3 — LTA Integration]: Prefect Scheduling
+## Task 19 [Phase 3 — LTA Integration]: Prefect Scheduling ✅
 
 **Files:**
 - Create: `railsense-ai/src/tasks.py`
@@ -2677,7 +2753,7 @@ git commit -m "feat: Prefect flow for scheduled ingestion and detection"
 
 ---
 
-## Task 20 [Phase 6 — Polish]: Test Configuration & conftest
+## Task 20 [Phase 6 — Polish]: Test Configuration & conftest ✅
 
 **Files:**
 - Create: `railsense-ai/tests/conftest.py`
@@ -2725,7 +2801,7 @@ git commit -m "feat: test conftest with SQLite in-memory database"
 
 ---
 
-## Task 21 [Phase 6 — Polish]: README & Final Polish
+## Task 21 [Phase 6 — Polish]: README & Final Polish ✅
 
 **Files:**
 - Create: `railsense-ai/README.md`

@@ -1,0 +1,209 @@
+# RailSense-AI
+
+**Real-time railway anomaly detection and AI-powered reasoning for Singapore's MRT network.**
+
+A full-stack decision intelligence platform that ingests train sensor telemetry, applies an ensemble of statistical and ML-based anomaly detection methods, and routes flagged anomalies to an LLM-powered reasoning agent that delivers root-cause analysis, severity assessment, and actionable maintenance recommendations.
+
+---
+
+## Why This Project
+
+The LTA Rail Digitalisation Division is building the intelligence layer of the Railway Common Data Platform (CDP) — systems that not only detect anomalies in complex railway time-series data but also **reason about them** to produce clear, actionable outcomes for maintenance and operations.
+
+RailSense-AI demonstrates the core capabilities this role demands:
+
+| JD Requirement | Implementation |
+|---|---|
+| **Time-series anomaly detection** (Z-score, growth rate, statistical thresholds) | Four detection methods: Z-Score rolling baseline, Isolation Forest multivariate, STL seasonal decomposition, Prophet forecast residuals — combined via weighted ensemble scoring |
+| **Decision Intelligence / AI Agents** (autonomous systems combining statistical triggers with LLM reasoning) | Protocol-based LLM provider abstraction with DeepSeek, Claude, OpenAI, and Ollama backends; agents automatically categorise, prioritise, and recommend actions for detected anomalies |
+| **MLOps & full ML lifecycle** (automated workflows, maintenance alerts) | Prefect-orchestrated ingestion-detection pipeline, Docker Compose deployment, PostgreSQL persistence, 46 automated tests |
+| **Data engineering** (real-time APIs, scalable pipelines) | LTA DataMall API integration, synthetic sensor data generator with configurable failure scenarios, FastAPI REST endpoints |
+| **Visualization & dashboard collaboration** (translating model outputs for UI/UX) | Streamlit dashboard with 4 purpose-built views; HTML design mockups created first to establish visual language before implementation |
+| **Stakeholder communication** (explaining algorithmic logic) | Model Comparison page provides side-by-side precision/recall/F1 metrics; AI agent assessments include structured reasoning chains |
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Ingestion["Data Ingestion"]
+        LTA[LTA DataMall API]
+        SYN[Synthetic Generator]
+    end
+
+    subgraph Detection["Detection Engine"]
+        ZS[Z-Score]
+        IF[Isolation Forest]
+        STL[STL Decomposition]
+        PR[Prophet]
+        ENS[Ensemble Scorer]
+    end
+
+    subgraph Agent["AI Reasoning Agent"]
+        LLM["LLM Provider<br/>(DeepSeek / Claude / OpenAI / Ollama)"]
+    end
+
+    subgraph Interface["Interface Layer"]
+        API[FastAPI REST API]
+        ST[Streamlit Dashboard]
+    end
+
+    LTA --> Detection
+    SYN --> Detection
+    ZS --> ENS
+    IF --> ENS
+    STL --> ENS
+    PR --> ENS
+    ENS --> API
+    API --> LLM
+    LLM --> API
+    API --> ST
+```
+
+---
+
+## Quick Start
+
+```bash
+# Clone and start all services
+docker compose up -d
+
+# Seed with 30-day demo dataset (5 trains, 3 failure scenarios)
+docker compose exec api python scripts/demo_seed.py
+
+# Open the dashboard
+open http://localhost:8501
+```
+
+---
+
+## Detection Methods
+
+| Method | Type | Approach | Strength |
+|---|---|---|---|
+| **Z-Score** | Statistical | Rolling window baseline; flags readings beyond configurable sigma thresholds | Fast, interpretable, good for sudden spikes |
+| **Isolation Forest** | ML (unsupervised) | Random feature splits across 4 sensor dimensions simultaneously | Captures multivariate correlations (e.g., vibration + current draw) |
+| **STL Decomposition** | Statistical | Seasonal-Trend decomposition removes daily ridership patterns; scores residuals using MAD-based robust estimation | Reduces false positives during peak hours |
+| **Prophet** | Forecast-based | Generates expected value bands with daily seasonality; residuals outside forecast interval are flagged | Captures complex temporal patterns |
+| **Ensemble** | Meta-method | Weighted average of all detectors with agreement boosting: anomalies confirmed by multiple methods receive elevated severity | Higher precision than any single method |
+
+---
+
+## AI Reasoning Agent
+
+The agent implements a **Protocol-based provider abstraction** (`LLMProvider` protocol) enabling hot-swappable LLM backends via environment variable:
+
+```
+LLM_PROVIDER=deepseek  # or claude, openai, ollama
+```
+
+When an anomaly is flagged, the agent receives full operational context:
+- Sensor type, value, and anomaly score
+- Detection methods that triggered
+- Peak hour status (impact assessment)
+- Recent reading history (trending vs. one-off)
+- Correlated sensor readings on the same train unit
+
+It returns a structured assessment: **root cause hypothesis**, **severity classification** (critical / warning / monitor), and **recommended maintenance action** with chain-of-thought reasoning.
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Service health check |
+| `GET` | `/api/sensors` | Query sensor readings (filter by train, type, time range) |
+| `GET` | `/api/anomalies` | List detected anomaly events (filter by severity, train) |
+| `POST` | `/api/assess/{id}` | Trigger AI agent assessment for a specific anomaly |
+| `GET` | `/api/assessments` | List all AI agent assessments |
+
+---
+
+## Dashboard
+
+Four purpose-built views designed for railway operations teams:
+
+- **Live Overview** — Network-wide health metrics, MRT line status, and real-time anomaly feed
+- **Sensor Explorer** — Drill into individual train sensor time-series with anomaly region overlays and detection method toggles
+- **Alert Feed** — Severity-filtered alert cards with expandable details and on-demand AI analysis
+- **Model Comparison** — Side-by-side STL vs Prophet evaluation with precision, recall, F1, computation time, and prediction overlays
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Language | Python 3.11 |
+| API | FastAPI + Uvicorn |
+| Dashboard | Streamlit |
+| Database | PostgreSQL 16 + SQLAlchemy 2.0 |
+| ML / Statistics | scikit-learn, statsmodels, Prophet |
+| Orchestration | Prefect |
+| LLM Providers | DeepSeek, Anthropic Claude, OpenAI, Ollama |
+| Infrastructure | Docker Compose |
+
+---
+
+## Project Structure
+
+```
+railsense-ai/
+├── docker-compose.yml
+├── Dockerfile
+├── pyproject.toml
+├── scripts/
+│   ├── seed_data.py              # Basic seed script
+│   └── demo_seed.py              # 30-day demo scenario generator
+├── src/
+│   ├── config.py                 # Pydantic settings
+│   ├── tasks.py                  # Prefect flow definitions
+│   ├── api/
+│   │   ├── main.py               # FastAPI application
+│   │   └── schemas.py            # Pydantic response models
+│   ├── agent/
+│   │   ├── provider.py           # LLMProvider protocol + factory
+│   │   ├── prompts.py            # System/user prompt templates
+│   │   ├── deepseek_provider.py
+│   │   ├── claude_provider.py
+│   │   ├── openai_provider.py
+│   │   └── ollama_provider.py
+│   ├── dashboard/
+│   │   └── app.py                # Streamlit multi-page dashboard
+│   ├── db/
+│   │   ├── models.py             # SQLAlchemy models
+│   │   └── session.py            # Engine + session factory
+│   ├── detection/
+│   │   ├── base.py               # Detector Protocol
+│   │   ├── zscore.py
+│   │   ├── isolation_forest.py
+│   │   ├── stl_detector.py
+│   │   ├── prophet_detector.py
+│   │   ├── ensemble.py           # Weighted ensemble scorer
+│   │   ├── compare.py            # STL vs Prophet comparison
+│   │   └── pipeline.py           # Detection pipeline orchestrator
+│   └── ingestion/
+│       ├── lta_client.py         # LTA DataMall API client
+│       └── synthetic_gen.py      # Synthetic sensor data generator
+├── designs/                      # HTML/CSS dashboard mockups
+└── tests/                        # 46 tests, SQLite in-memory isolation
+```
+
+---
+
+## Testing
+
+```bash
+pytest --tb=short -q
+# 46 passed
+```
+
+Full test coverage across detection methods, API endpoints, database models, LLM provider factory, data pipeline, and synthetic data generation. Tests use SQLite in-memory databases — no external services required.
+
+---
+
+## License
+
+MIT
