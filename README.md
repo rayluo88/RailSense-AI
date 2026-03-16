@@ -14,7 +14,7 @@ A full-stack decision intelligence platform that ingests train sensor telemetry,
 | **Decision intelligence** | Protocol-based LLM provider abstraction (DeepSeek, Claude, OpenAI, Ollama) that analyses flagged anomalies and returns structured root-cause hypotheses, severity classifications, and maintenance recommendations |
 | **Automated ML pipelines** | Prefect-orchestrated ingestion → detection → alerting workflow, Dockerised deployment, PostgreSQL persistence, 46 automated tests |
 | **Data integration** | LTA DataMall API client for live train data, synthetic sensor generator with configurable failure scenarios (bearing degradation, door wear, electrical faults) |
-| **Operations dashboard** | Streamlit UI with 4 views: live network overview, sensor time-series drilldown with anomaly overlays, severity-filtered alert feed, and side-by-side model comparison (precision / recall / F1) |
+| **Operations dashboard** | Server-rendered HTML dashboard (FastAPI + Jinja2) with 4 views: live network overview, sensor time-series drilldown with Plotly charts, severity-filtered alert feed with on-demand AI analysis, and side-by-side model comparison (precision / recall / F1) |
 
 ---
 
@@ -41,7 +41,7 @@ flowchart LR
 
     subgraph Interface["Interface Layer"]
         API[FastAPI REST API]
-        ST[Streamlit Dashboard]
+        DASH[HTML Dashboard<br/>Jinja2 + Plotly]
     end
 
     LTA --> Detection
@@ -53,7 +53,7 @@ flowchart LR
     ENS --> API
     API --> LLM
     LLM --> API
-    API --> ST
+    API --> DASH
 ```
 
 ---
@@ -65,10 +65,10 @@ flowchart LR
 docker compose up -d
 
 # Seed with 30-day demo dataset (5 trains, 3 failure scenarios)
-docker compose exec api python scripts/demo_seed.py
+docker compose exec api python -m scripts.demo_seed
 
 # Open the dashboard
-open http://localhost:8501
+open http://localhost:8000/overview
 ```
 
 ---
@@ -113,6 +113,16 @@ It returns a structured assessment: **root cause hypothesis**, **severity classi
 | `GET` | `/api/anomalies` | List detected anomaly events (filter by severity, train) |
 | `POST` | `/api/assess/{id}` | Trigger AI agent assessment for a specific anomaly |
 | `GET` | `/api/assessments` | List all AI agent assessments |
+| `GET` | `/api/compare` | Run STL vs Prophet comparison on synthetic data |
+
+### Dashboard Pages
+
+| Route | View |
+|---|---|
+| `/overview` | Live network health overview |
+| `/sensors` | Sensor time-series drilldown |
+| `/alerts` | Severity-filtered alert feed |
+| `/models` | Model comparison |
 
 ---
 
@@ -133,7 +143,7 @@ Four purpose-built views designed for railway operations teams:
 |---|---|
 | Language | Python 3.11 |
 | API | FastAPI + Uvicorn |
-| Dashboard | Streamlit |
+| Dashboard | Jinja2 + Plotly.js (server-rendered HTML) |
 | Database | PostgreSQL 16 + SQLAlchemy 2.0 |
 | ML / Statistics | scikit-learn, statsmodels, Prophet |
 | Orchestration | Prefect |
@@ -166,7 +176,16 @@ railsense-ai/
 │   │   ├── openai_provider.py
 │   │   └── ollama_provider.py
 │   ├── dashboard/
-│   │   └── app.py                # Streamlit multi-page dashboard
+│   │   ├── routes.py             # Dashboard page routes (Jinja2)
+│   │   └── queries.py            # DB query functions for dashboard
+│   ├── templates/
+│   │   ├── base.html             # Shared layout (sidebar, clock)
+│   │   ├── overview.html         # Live Overview page
+│   │   ├── sensor_explorer.html  # Sensor Explorer page
+│   │   ├── alert_feed.html       # Alert Feed page
+│   │   └── model_comparison.html # Model Comparison page
+│   ├── static/
+│   │   └── shared-styles.css     # Design system stylesheet
 │   ├── db/
 │   │   ├── models.py             # SQLAlchemy models
 │   │   └── session.py            # Engine + session factory

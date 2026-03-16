@@ -1,6 +1,6 @@
 # Deploying RailSense-AI on Railway
 
-Step-by-step guide to deploy the full stack (FastAPI + Streamlit + PostgreSQL) on [Railway](https://railway.com/).
+Step-by-step guide to deploy the full stack (FastAPI + PostgreSQL) on [Railway](https://railway.com/).
 
 ## Prerequisites
 
@@ -15,7 +15,7 @@ Step-by-step guide to deploy the full stack (FastAPI + Streamlit + PostgreSQL) o
 | Free Trial | $0 (one-time) | $5 credit, 30-day limit |
 | Hobby | $5/month | $5 usage credit included — sufficient for this project |
 
-Three services (Postgres + FastAPI + Streamlit) will consume roughly $3–5/month in resources.
+Two services (Postgres + FastAPI) will consume roughly $2–4/month in resources.
 
 ---
 
@@ -31,7 +31,9 @@ Three services (Postgres + FastAPI + Streamlit) will consume roughly $3–5/mont
 2. Railway provisions a managed PostgreSQL 16 instance automatically
 3. It generates connection variables including `DATABASE_URL` — you'll reference this later
 
-## Step 3: Deploy the API Service
+## Step 3: Deploy the Application
+
+The FastAPI server serves both the REST API and the HTML dashboard (Jinja2 templates), so only one application service is needed.
 
 1. Click **"+ New" → "GitHub Repo"**
 2. Select your `railsense-ai` repository
@@ -39,18 +41,11 @@ Three services (Postgres + FastAPI + Streamlit) will consume roughly $3–5/mont
 4. Go to **Settings → Deploy** and set:
    - **Start Command**: `uvicorn src.api.main:app --host 0.0.0.0 --port 8000`
    - **Health Check Path**: `/health`
-5. Go to **Settings → Networking** and note the internal hostname (e.g., `api.railway.internal`)
+5. Go to **Settings → Networking** and click **"Generate Domain"** to create a public URL
 
-## Step 4: Deploy the Dashboard Service
+## Step 4: Configure Environment Variables
 
-1. Click **"+ New" → "GitHub Repo"** (same repository)
-2. Go to **Settings → Deploy** and set:
-   - **Start Command**: `streamlit run src/dashboard/app.py --server.port 8501 --server.address 0.0.0.0`
-3. Go to **Settings → Networking** and click **"Generate Domain"** to create a public URL
-
-## Step 5: Configure Environment Variables
-
-Set these on **both** the API and Dashboard services under the **Variables** tab:
+Set these on the application service under the **Variables** tab:
 
 | Variable | Value |
 |---|---|
@@ -61,40 +56,9 @@ Set these on **both** the API and Dashboard services under the **Variables** tab
 
 The `${{Postgres.DATABASE_URL}}` syntax dynamically references the PostgreSQL service's connection string.
 
-Set this **only on the Dashboard service**:
+## Step 5: Run Database Migrations
 
-| Variable | Value |
-|---|---|
-| `API_BASE_URL` | `http://api.railway.internal:8000` |
-
-> **Note:** Railway uses private networking between services via `*.railway.internal` hostnames over Wireguard tunnels. Use `http` (not `https`) for internal service-to-service calls.
-
-## Step 6: Code Changes Required
-
-### 1. Make API base URL configurable in the dashboard
-
-In `src/dashboard/app.py`, change:
-
-```python
-API_BASE = "http://localhost:8000"
-```
-
-to:
-
-```python
-import os
-API_BASE = os.environ.get("API_BASE_URL", "http://localhost:8000")
-```
-
-This keeps local development working while allowing Railway to inject the internal URL.
-
-### 2. Database URL
-
-Already configurable via `src/config.py` — the `DATABASE_URL` environment variable is read by Pydantic Settings. No code change needed.
-
-## Step 7: Run Database Migrations
-
-After the API service deploys successfully, run migrations via Railway's CLI or one-off command:
+After the service deploys successfully, run migrations via Railway's CLI or one-off command:
 
 ```bash
 # Install Railway CLI
@@ -104,19 +68,19 @@ npm install -g @railway/cli
 railway login
 railway link
 
-# Run Alembic migrations against the API service
-railway run -s api alembic upgrade head
+# Run Alembic migrations against the service
+railway run alembic upgrade head
 ```
 
-## Step 8: Seed Demo Data
+## Step 6: Seed Demo Data
 
 ```bash
-railway run -s api python scripts/demo_seed.py
+railway run python -m scripts.demo_seed
 ```
 
-## Step 9: Verify
+## Step 7: Verify
 
-1. Open the Dashboard's public URL (generated in Step 4)
+1. Open the public URL generated in Step 3
 2. Confirm all four pages load: Live Overview, Sensor Explorer, Alert Feed, Model Comparison
 3. Test the AI assessment endpoint (requires a valid LLM API key)
 
@@ -124,9 +88,8 @@ railway run -s api python scripts/demo_seed.py
 
 ## Optional: Config as Code
 
-Instead of configuring via the dashboard, you can add `railway.toml` files:
+Instead of configuring via the dashboard, add a `railway.toml` file at the repo root:
 
-**`api.railway.toml`**:
 ```toml
 [build]
 dockerfilePath = "Dockerfile"
@@ -137,17 +100,7 @@ healthcheckPath = "/health"
 restartPolicyType = "ON_FAILURE"
 ```
 
-**`dashboard.railway.toml`**:
-```toml
-[build]
-dockerfilePath = "Dockerfile"
-
-[deploy]
-startCommand = "streamlit run src/dashboard/app.py --server.port 8501 --server.address 0.0.0.0"
-restartPolicyType = "ON_FAILURE"
-```
-
-Then in the Railway dashboard, set each service's **Config File Path** to the corresponding `.railway.toml` file.
+Then in the Railway dashboard, set the service's **Config File Path** to `railway.toml`.
 
 ---
 
@@ -155,10 +108,10 @@ Then in the Railway dashboard, set each service's **Config File Path** to the co
 
 | Issue | Fix |
 |---|---|
-| Dashboard can't reach API | Check `API_BASE_URL` uses `http://api.railway.internal:8000` (not https) |
 | Database connection refused | Verify `DATABASE_URL` uses `${{Postgres.DATABASE_URL}}` reference syntax |
 | Build fails | Ensure `Dockerfile` and `pyproject.toml` are at repo root |
 | Services sleeping | Free trial has resource limits; upgrade to Hobby plan |
+| Static files not loading | Verify `src/static/` is included in the Docker image |
 
 ---
 
@@ -167,6 +120,5 @@ Then in the Railway dashboard, set each service's **Config File Path** to the co
 - [Railway Docs — Dockerfiles](https://docs.railway.com/builds/dockerfiles)
 - [Railway Docs — PostgreSQL](https://docs.railway.com/databases/postgresql)
 - [Railway Docs — Variables](https://docs.railway.com/variables)
-- [Railway Docs — Private Networking](https://docs.railway.com/guides/private-networking)
 - [Railway Docs — Config as Code](https://docs.railway.com/config-as-code/reference)
 - [Railway Docs — Pricing](https://docs.railway.com/reference/pricing/plans)
