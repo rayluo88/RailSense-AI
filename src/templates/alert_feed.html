@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+
+{% set active_page = "alerts" %}
+
+{% block title %}Alert Feed{% endblock %}
+{% block page_title %}Alert Feed{% endblock %}
+{% block page_subtitle %}Review anomaly alerts and request AI-powered analysis{% endblock %}
+
+{% block page_styles %}
+<style>
+  .filter-chips {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-xl);
+  }
+
+  .chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border-default);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+  }
+
+  .chip.active-critical {
+    background: var(--critical-bg);
+    border-color: var(--critical-border);
+    color: var(--critical);
+  }
+
+  .chip.active-warning {
+    background: var(--warning-bg);
+    border-color: var(--warning-border);
+    color: var(--warning);
+  }
+
+  .chip.active-all {
+    background: var(--accent-bg);
+    border-color: rgba(37, 99, 235, 0.3);
+    color: var(--accent);
+  }
+
+  .chip-count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.08);
+  }
+
+  .alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .alert-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all 0.2s ease;
+  }
+
+  .alert-card:hover { border-color: var(--border-default); }
+
+  .alert-card.critical-border { border-left: 3px solid var(--critical); }
+  .alert-card.warning-border { border-left: 3px solid var(--warning); }
+
+  .alert-card-header {
+    display: flex;
+    align-items: center;
+    padding: var(--space-lg);
+    cursor: pointer;
+    gap: var(--space-md);
+  }
+
+  .alert-severity-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .alert-severity-indicator.critical {
+    background: var(--critical);
+    box-shadow: 0 0 8px var(--critical-glow);
+  }
+
+  .alert-severity-indicator.warning { background: var(--warning); }
+
+  .alert-card-info { flex: 1; }
+
+  .alert-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .alert-card-meta {
+    display: flex;
+    gap: var(--space-lg);
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .alert-card-meta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .alert-card-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .expand-icon {
+    font-size: 16px;
+    color: var(--text-dim);
+    transition: transform 0.2s ease;
+  }
+
+  .alert-card.expanded .expand-icon { transform: rotate(180deg); }
+
+  .alert-card-body {
+    display: none;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .alert-card.expanded .alert-card-body { display: block; }
+
+  .alert-details {
+    padding: var(--space-lg);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+  }
+
+  .detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .detail-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+
+  .detail-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .ai-section {
+    padding: 0 var(--space-lg) var(--space-lg);
+  }
+
+  .ai-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 10px var(--space-md);
+    background: var(--accent-bg);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: var(--radius-md);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .ai-trigger:hover {
+    background: rgba(37, 99, 235, 0.15);
+    border-color: rgba(37, 99, 235, 0.4);
+  }
+
+  .ai-trigger .ai-icon { font-size: 14px; }
+
+  .ai-result {
+    margin-top: var(--space-md);
+    padding: var(--space-lg);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+  }
+
+  .ai-result-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--accent);
+  }
+
+  .ai-result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+  }
+
+  .ai-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ai-field.full-width { grid-column: 1 / -1; }
+
+  .ai-field-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+
+  .ai-field-value {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
+  .ai-provider-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: var(--space-md);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .ai-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border-subtle);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Filter Chips -->
+<div class="filter-chips">
+  <a class="chip active-all" href="/alerts">
+    All <span class="chip-count">{{ total }}</span>
+  </a>
+  <a class="chip active-critical" href="/alerts?severity=critical">
+    Critical <span class="chip-count">{{ critical_count }}</span>
+  </a>
+  <a class="chip active-warning" href="/alerts?severity=warning">
+    Warning <span class="chip-count">{{ warning_count }}</span>
+  </a>
+</div>
+
+<!-- Alert Cards -->
+<div class="alerts-list">
+  {% for a in alerts %}
+  <div class="alert-card {{ 'critical-border' if a.severity.value == 'critical' else 'warning-border' }}" id="alert-{{ a.id }}">
+    <div class="alert-card-header" onclick="this.parentElement.classList.toggle('expanded')">
+      <div class="alert-severity-indicator {{ a.severity.value }}"></div>
+      <div class="alert-card-info">
+        <div class="alert-card-title">
+          <span class="severity-badge {{ a.severity.value }}">{{ a.severity.value|upper }}</span>
+          {{ a.sensor_type.value|replace('_', ' ')|title }} anomaly detected
+        </div>
+        <div class="alert-card-meta">
+          <span><span class="line-badge {{ a.line_id|lower }}" style="width:28px; height:16px; font-size:8px">{{ a.line_id }}</span> {{ a.train_id }}</span>
+          <span>{{ a.station_id }}</span>
+          <span>{{ a.sensor_type.value }}</span>
+          <span>{{ a.timestamp.strftime('%H:%M:%S') }} SGT</span>
+        </div>
+      </div>
+      <div class="alert-card-actions">
+        {% if not a.assessments %}
+        <div class="ai-trigger" onclick="event.stopPropagation(); requestAnalysis({{ a.id }})">
+          <span class="ai-icon">&#9733;</span>
+          Request AI Analysis
+        </div>
+        {% endif %}
+        <span class="expand-icon">&#9654;</span>
+      </div>
+    </div>
+    <div class="alert-card-body">
+      <div class="alert-details">
+        <div class="detail-item">
+          <span class="detail-label">Anomaly Score</span>
+          <span class="detail-value" style="color: {{ 'var(--critical)' if a.severity.value == 'critical' else 'var(--warning)' }}">{{ "%.2f"|format(a.anomaly_score) }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Line / Station</span>
+          <span class="detail-value">{{ a.line_id }} / {{ a.station_id }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Detection Method</span>
+          <span class="detail-value">{{ a.detection_method }}</span>
+        </div>
+      </div>
+      <div class="ai-section" id="ai-section-{{ a.id }}">
+        {% if a.assessments %}
+        {% set assessment = a.assessments[0] %}
+        <div class="ai-result">
+          <div class="ai-result-header">&#9733; AI Agent Assessment</div>
+          <div class="ai-result-grid">
+            <div class="ai-field">
+              <span class="ai-field-label">Root Cause</span>
+              <span class="ai-field-value">{{ assessment.root_cause }}</span>
+            </div>
+            <div class="ai-field">
+              <span class="ai-field-label">Severity Assessment</span>
+              <span class="ai-field-value">
+                {% if assessment.severity_override %}
+                <span class="severity-badge {{ assessment.severity_override.value }}">{{ assessment.severity_override.value|upper }}</span> &mdash; AI-confirmed severity
+                {% else %}
+                Unchanged
+                {% endif %}
+              </span>
+            </div>
+            <div class="ai-field full-width">
+              <span class="ai-field-label">Recommended Action</span>
+              <span class="ai-field-value">{{ assessment.recommended_action }}</span>
+            </div>
+            <div class="ai-field full-width">
+              <span class="ai-field-label">Reasoning</span>
+              <span class="ai-field-value">{{ assessment.reasoning }}</span>
+            </div>
+          </div>
+          <div class="ai-provider-tag">
+            Analyzed by {{ assessment.llm_provider }}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if not alerts %}
+<div class="card" style="text-align:center; color:var(--text-muted); padding:40px;">
+  No anomalies detected yet.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function requestAnalysis(anomalyId) {
+    const section = document.getElementById('ai-section-' + anomalyId);
+    const card = document.getElementById('alert-' + anomalyId);
+
+    // Expand the card
+    card.classList.add('expanded');
+
+    // Show loading
+    section.innerHTML = '<div class="ai-loading"><div class="spinner"></div>Analyzing with AI agent...</div>';
+
+    try {
+      const response = await fetch('/api/assess/' + anomalyId, { method: 'POST' });
+      if (!response.ok) throw new Error('Analysis failed');
+      const data = await response.json();
+
+      const sev = data.severity_override || '';
+      const sevBadge = sev ? '<span class="severity-badge ' + sev + '">' + sev.toUpperCase() + '</span> &mdash; AI-confirmed severity' : 'Unchanged';
+
+      section.innerHTML = `
+        <div class="ai-result">
+          <div class="ai-result-header">&#9733; AI Agent Assessment</div>
+          <div class="ai-result-grid">
+            <div class="ai-field">
+              <span class="ai-field-label">Root Cause</span>
+              <span class="ai-field-value">${data.root_cause}</span>
+            </div>
+            <div class="ai-field">
+              <span class="ai-field-label">Severity Assessment</span>
+              <span class="ai-field-value">${sevBadge}</span>
+            </div>
+            <div class="ai-field full-width">
+              <span class="ai-field-label">Recommended Action</span>
+              <span class="ai-field-value">${data.recommended_action}</span>
+            </div>
+            <div class="ai-field full-width">
+              <span class="ai-field-label">Reasoning</span>
+              <span class="ai-field-value">${data.reasoning}</span>
+            </div>
+          </div>
+          <div class="ai-provider-tag">
+            Analyzed by ${data.llm_provider || 'AI Agent'}
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      section.innerHTML = '<div style="color:var(--critical); padding:12px; font-size:12px;">Analysis failed: ' + e.message + '</div>';
+    }
+  }
+</script>
+{% endblock %}

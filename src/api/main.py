@@ -2,11 +2,13 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from src.agent.provider import AnomalyContext, get_provider
 from src.api.schemas import AgentAssessmentOut, AnomalyEventOut, SensorReadingOut
 from src.config import settings
+from src.dashboard.routes import router as dashboard_router
 from src.db.models import AgentAssessment as AgentAssessmentModel, AnomalyEvent, SensorReading
 from src.db.session import Base, engine, get_db
 
@@ -18,6 +20,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="RailSense-AI", version="0.1.0", lifespan=lifespan)
+
+# Static files and Jinja2 dashboard
+app.mount("/static", StaticFiles(directory="src/static"), name="static")
 
 
 @app.get("/health")
@@ -118,3 +123,24 @@ def get_assessments(
         .limit(limit)
         .all()
     )
+
+
+@app.get("/api/compare")
+def run_comparison(
+    sensor_type: str = "temperature",
+    hours: int = 48,
+):
+    from src.ingestion.synthetic_gen import SyntheticGenerator, AnomalyScenario
+    from src.detection.compare import compare_detectors
+
+    gen = SyntheticGenerator(seed=99)
+    scenario = AnomalyScenario(
+        sensor_types=[sensor_type], start_hour=12, duration_hours=2, magnitude=4.0
+    )
+    df = gen.generate(train_id="COMPARE", hours=hours, anomalies=[scenario])
+    filtered = df[df["sensor_type"] == sensor_type].reset_index(drop=True)
+    return compare_detectors(filtered)
+
+
+# Dashboard routes (must be last to avoid overriding /api/* routes)
+app.include_router(dashboard_router)

@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+
+{% set active_page = "models" %}
+
+{% block title %}Model Comparison{% endblock %}
+{% block page_title %}Model Comparison{% endblock %}
+{% block page_subtitle %}Compare STL decomposition vs Prophet forecast anomaly detection{% endblock %}
+
+{% block page_styles %}
+<style>
+  .run-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-xl);
+    padding: var(--space-lg);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+  }
+
+  .run-controls .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .run-controls .filter-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+
+  .run-controls .filter-select {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 8px 32px 8px 12px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+
+  .run-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 10px 24px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    border: none;
+    background: var(--accent);
+    color: var(--bg-primary);
+    transition: all 0.15s ease;
+    margin-left: auto;
+  }
+
+  .run-btn:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+  }
+
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-xl);
+  }
+
+  .model-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .model-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .model-name {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .model-tag {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  .model-tag.statistical {
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+  }
+
+  .model-tag.forecast {
+    background: rgba(244, 114, 182, 0.1);
+    color: #f472b6;
+    border: 1px solid rgba(244, 114, 182, 0.2);
+  }
+
+  .model-metrics {
+    padding: var(--space-lg);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+  }
+
+  .model-metric {
+    text-align: center;
+    padding: var(--space-md);
+    background: var(--bg-primary);
+    border-radius: var(--radius-md);
+  }
+
+  .model-metric-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .model-metric-value {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .model-metric-value.best { color: var(--healthy); }
+  .model-metric-value.worse { color: var(--text-secondary); }
+
+  .model-extra-metrics {
+    padding: 0 var(--space-lg) var(--space-lg);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+  }
+
+  .extra-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px var(--space-md);
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+  }
+
+  .extra-metric-label {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .extra-metric-value {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .winner-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--healthy);
+  }
+
+  .summary-section { margin-top: var(--space-xl); }
+
+  .vs-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 20px;
+    border-radius: var(--radius-sm);
+    font-size: 9px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .loading-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .spinner-lg {
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--border-subtle);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Run Controls -->
+<div class="run-controls">
+  <div class="filter-group">
+    <span class="filter-label">Sensor Type</span>
+    <select class="filter-select" id="compare-sensor">
+      <option>temperature</option>
+      <option>vibration</option>
+      <option>door_cycle</option>
+      <option>current_draw</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Duration</span>
+    <select class="filter-select" id="compare-hours">
+      <option value="48">48 hours</option>
+      <option value="24">24 hours</option>
+      <option value="72">72 hours</option>
+    </select>
+  </div>
+  <button class="run-btn" onclick="runComparison()">
+    <span>&#9654;</span>
+    Run Comparison
+  </button>
+</div>
+
+<!-- Results container -->
+<div id="comparison-results">
+  <div style="text-align:center; padding:60px; color:var(--text-muted); font-size:13px;">
+    Click "Run Comparison" to compare STL vs Prophet anomaly detection on synthetic data.
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function runComparison() {
+    const container = document.getElementById('comparison-results');
+    container.innerHTML = '<div class="loading-overlay"><div class="spinner-lg"></div>Running STL and Prophet detectors... (Prophet may take a minute)</div>';
+
+    try {
+      const sensor = document.getElementById('compare-sensor').value;
+      const hours = document.getElementById('compare-hours').value;
+      const response = await fetch('/api/compare?sensor_type=' + sensor + '&hours=' + hours);
+      if (!response.ok) throw new Error('Comparison failed');
+      const data = await response.json();
+
+      const stl = data.stl || {};
+      const prophet = data.prophet || {};
+
+      function bestClass(a, b, higherIsBetter) {
+        if (higherIsBetter === undefined) higherIsBetter = true;
+        return higherIsBetter ? (a >= b ? 'best' : 'worse') : (a <= b ? 'best' : 'worse');
+      }
+
+      function winnerBadge(stlVal, prophetVal, higherIsBetter) {
+        if (higherIsBetter === undefined) higherIsBetter = true;
+        const winner = higherIsBetter ? (stlVal >= prophetVal ? 'STL' : 'Prophet') : (stlVal <= prophetVal ? 'STL' : 'Prophet');
+        return '<span class="severity-badge healthy">' + winner + '</span>';
+      }
+
+      function valStyle(val, other, higherIsBetter) {
+        if (higherIsBetter === undefined) higherIsBetter = true;
+        const isBetter = higherIsBetter ? val >= other : val <= other;
+        return isBetter ? 'color: var(--healthy); font-weight: 600' : '';
+      }
+
+      // STL winner text
+      const stlWins = [];
+      if (stl.f1 >= prophet.f1) stlWins.push('Higher F1');
+      if (stl.precision >= prophet.precision) stlWins.push('Higher Precision');
+      const stlWinnerHtml = stlWins.length ? '<div class="winner-indicator">&#9733; ' + stlWins.join(', ') + '</div>' : '';
+
+      const prophetWins = [];
+      if (prophet.recall >= stl.recall) prophetWins.push('Higher Recall');
+      const prophetWinnerHtml = prophetWins.length ? '<div class="winner-indicator">&#9733; ' + prophetWins.join(', ') + '</div>' : '';
+
+      const timeColor = (t) => t < 1 ? 'var(--healthy)' : 'var(--warning)';
+
+      container.innerHTML = `
+        <div class="comparison-grid">
+          <div class="model-panel">
+            <div class="model-panel-header">
+              <div class="model-name">STL Decomposition <span class="model-tag statistical">Statistical</span></div>
+              ${stlWinnerHtml}
+            </div>
+            <div class="model-metrics">
+              <div class="model-metric">
+                <div class="model-metric-label">Precision</div>
+                <div class="model-metric-value ${bestClass(stl.precision, prophet.precision)}">${(stl.precision || 0).toFixed(2)}</div>
+              </div>
+              <div class="model-metric">
+                <div class="model-metric-label">Recall</div>
+                <div class="model-metric-value ${bestClass(stl.recall, prophet.recall)}">${(stl.recall || 0).toFixed(2)}</div>
+              </div>
+              <div class="model-metric">
+                <div class="model-metric-label">F1 Score</div>
+                <div class="model-metric-value ${bestClass(stl.f1, prophet.f1)}">${(stl.f1 || 0).toFixed(2)}</div>
+              </div>
+            </div>
+            <div class="model-extra-metrics">
+              <div class="extra-metric">
+                <span class="extra-metric-label">Compute Time</span>
+                <span class="extra-metric-value" style="color:${timeColor(stl.time_seconds)}">${(stl.time_seconds || 0).toFixed(2)}s</span>
+              </div>
+              <div class="extra-metric">
+                <span class="extra-metric-label">Total Flagged</span>
+                <span class="extra-metric-value">${stl.total_flagged || 0}</span>
+              </div>
+              <div class="extra-metric">
+                <span class="extra-metric-label">True Positives</span>
+                <span class="extra-metric-value">${stl.true_positives || '---'}</span>
+              </div>
+              <div class="extra-metric">
+                <span class="extra-metric-label">False Positives</span>
+                <span class="extra-metric-value">${stl.false_positives || '---'}</span>
+              </div>
+            </div>
+          </div>
+          <div class="model-panel">
+            <div class="model-panel-header">
+              <div class="model-name">Prophet Forecast <span class="model-tag forecast">Forecast</span></div>
+              ${prophetWinnerHtml}
+            </div>
+            <div class="model-metrics">
+              <div class="model-metric">
+                <div class="model-metric-label">Precision</div>
+                <div class="model-metric-value ${bestClass(prophet.precision, stl.precision)}">${(prophet.precision || 0).toFixed(2)}</div>
+              </div>
+              <div class="model-metric">
+                <div class="model-metric-label">Recall</div>
+                <div class="model-metric-value ${bestClass(prophet.recall, stl.recall)}">${(prophet.recall || 0).toFixed(2)}</div>
+              </div>
+              <div class="model-metric">
+                <div class="model-metric-label">F1 Score</div>
+                <div class="model-metric-value ${bestClass(prophet.f1, stl.f1)}">${(prophet.f1 || 0).toFixed(2)}</div>
+              </div>
+            </div>
+            <div class="model-extra-metrics">
+              <div class="extra-metric">
+                <span class="extra-metric-label">Compute Time</span>
+                <span class="extra-metric-value" style="color:${timeColor(prophet.time_seconds)}">${(prophet.time_seconds || 0).toFixed(2)}s</span>
+              </div>
+              <div class="extra-metric">
+                <span class="extra-metric-label">Total Flagged</span>
+                <span class="extra-metric-value">${prophet.total_flagged || 0}</span>
+              </div>
+              <div class="extra-metric">
+                <span class="extra-metric-label">True Positives</span>
+                <span class="extra-metric-value">${prophet.true_positives || '---'}</span>
+              </div>
+              <div class="extra-metric">
+                <span class="extra-metric-label">False Positives</span>
+                <span class="extra-metric-value">${prophet.false_positives || '---'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card summary-section">
+          <div class="card-title">Detailed Comparison Summary</div>
+          <table class="data-table">
+            <thead>
+              <tr><th>Metric</th><th>STL Decomposition</th><th></th><th>Prophet Forecast</th><th>Winner</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color:var(--text-primary); font-family:var(--font-sans)">Precision</td>
+                <td style="${valStyle(stl.precision, prophet.precision)}">${(stl.precision||0).toFixed(2)}</td>
+                <td><span class="vs-badge">vs</span></td>
+                <td style="${valStyle(prophet.precision, stl.precision)}">${(prophet.precision||0).toFixed(2)}</td>
+                <td>${winnerBadge(stl.precision, prophet.precision)}</td>
+              </tr>
+              <tr>
+                <td style="color:var(--text-primary); font-family:var(--font-sans)">Recall</td>
+                <td style="${valStyle(stl.recall, prophet.recall)}">${(stl.recall||0).toFixed(2)}</td>
+                <td><span class="vs-badge">vs</span></td>
+                <td style="${valStyle(prophet.recall, stl.recall)}">${(prophet.recall||0).toFixed(2)}</td>
+                <td>${winnerBadge(stl.recall, prophet.recall)}</td>
+              </tr>
+              <tr>
+                <td style="color:var(--text-primary); font-family:var(--font-sans)">F1 Score</td>
+                <td style="${valStyle(stl.f1, prophet.f1)}">${(stl.f1||0).toFixed(2)}</td>
+                <td><span class="vs-badge">vs</span></td>
+                <td style="${valStyle(prophet.f1, stl.f1)}">${(prophet.f1||0).toFixed(2)}</td>
+                <td>${winnerBadge(stl.f1, prophet.f1)}</td>
+              </tr>
+              <tr>
+                <td style="color:var(--text-primary); font-family:var(--font-sans)">Computation Time</td>
+                <td style="${valStyle(stl.time_seconds, prophet.time_seconds, false)}">${(stl.time_seconds||0).toFixed(2)}s</td>
+                <td><span class="vs-badge">vs</span></td>
+                <td style="${valStyle(prophet.time_seconds, stl.time_seconds, false)}">${(prophet.time_seconds||0).toFixed(2)}s</td>
+                <td>${winnerBadge(stl.time_seconds, prophet.time_seconds, false)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (e) {
+      container.innerHTML = '<div style="color:var(--critical); text-align:center; padding:40px;">Comparison failed: ' + e.message + '</div>';
+    }
+  }
+</script>
+{% endblock %}

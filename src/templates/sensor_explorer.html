@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% set active_page = "sensors" %}
+
+{% block title %}Sensor Explorer{% endblock %}
+{% block page_title %}Sensor Explorer{% endblock %}
+{% block page_subtitle %}Drill into individual sensor time-series with anomaly overlays{% endblock %}
+
+{% block page_styles %}
+<style>
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-xl);
+    flex-wrap: wrap;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .filter-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+
+  .filter-select {
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 8px 32px 8px 12px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+
+  .filter-select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .filter-divider {
+    width: 1px;
+    height: 36px;
+    background: var(--border-subtle);
+    margin: 0 var(--space-sm);
+    align-self: flex-end;
+  }
+
+  .reading-stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: var(--space-md);
+    margin-bottom: var(--space-xl);
+  }
+
+  .stat-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    text-align: center;
+  }
+
+  .stat-box .stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  .stat-box .stat-value {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .chart-section { margin-bottom: var(--space-xl); }
+
+  .detail-section { margin-top: var(--space-lg); }
+
+  .anomaly-score {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  .anomaly-score.high {
+    background: var(--critical-bg);
+    color: var(--critical);
+  }
+
+  .anomaly-score.medium {
+    background: var(--warning-bg);
+    color: var(--warning);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<form class="filter-bar" method="get" action="/sensors">
+  <div class="filter-group">
+    <span class="filter-label">Train Unit</span>
+    <select class="filter-select" name="train_id" onchange="this.form.submit()">
+      {% for tid in ["T001", "T002", "T003", "T004", "T005"] %}
+      <option value="{{ tid }}" {{ 'selected' if tid == train_id }}>{{ tid }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Sensor Type</span>
+    <select class="filter-select" name="sensor_type" onchange="this.form.submit()">
+      {% for st in ["vibration", "temperature", "door_cycle", "current_draw"] %}
+      <option value="{{ st }}" {{ 'selected' if st == sensor_type }}>{{ st }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+<!-- Reading Stats -->
+<div class="reading-stats">
+  <div class="stat-box">
+    <div class="stat-label">Data Points</div>
+    <div class="stat-value">{{ data_points }}</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Mean</div>
+    <div class="stat-value">{{ mean }}</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Std Dev</div>
+    <div class="stat-value">{{ std }}</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Max</div>
+    <div class="stat-value" style="color: var(--critical)">{{ max_val }}</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Anomalies</div>
+    <div class="stat-value" style="color: var(--warning)">{{ anomaly_count }}</div>
+  </div>
+</div>
+
+<!-- Plotly Chart -->
+<div class="chart-section">
+  <div id="sensor-chart" style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); overflow:hidden;"></div>
+</div>
+
+<!-- Anomaly Details Table -->
+{% if anomalies %}
+<div class="card detail-section">
+  <div class="card-title">Detected Anomalies</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>Value</th>
+        <th>Score</th>
+        <th>Severity</th>
+        <th>Method</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in anomalies %}
+      <tr>
+        <td>{{ a.timestamp.strftime('%H:%M:%S') }}</td>
+        <td>{{ "%.3f"|format(a.value) }}</td>
+        <td><span class="anomaly-score {{ 'high' if a.anomaly_score >= 0.8 else 'medium' }}">{{ "%.2f"|format(a.anomaly_score) }}</span></td>
+        <td><span class="severity-badge {{ a.severity.value }}">{{ a.severity.value|upper }}</span></td>
+        <td>{{ a.detection_method }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const timestamps = {{ chart_timestamps | tojson }};
+  const values = {{ chart_values | tojson }};
+  const anomTimestamps = {{ anom_timestamps | tojson }};
+  const anomValues = {{ anom_values | tojson }};
+  const anomScores = {{ anom_scores | tojson }};
+  const anomSeverities = {{ anom_severities | tojson }};
+
+  const sensorTrace = {
+    x: timestamps,
+    y: values,
+    mode: 'lines',
+    name: '{{ sensor_type }} value',
+    line: { color: '#2563eb', width: 1.5 },
+    hovertemplate: '%{x|%H:%M:%S}<br>Value: %{y:.3f}<extra></extra>'
+  };
+
+  const traces = [sensorTrace];
+
+  // Split anomaly markers by severity
+  const critIdx = anomSeverities.map((s, i) => s === 'critical' ? i : -1).filter(i => i >= 0);
+  const warnIdx = anomSeverities.map((s, i) => s === 'warning' ? i : -1).filter(i => i >= 0);
+
+  if (critIdx.length) {
+    traces.push({
+      x: critIdx.map(i => anomTimestamps[i]),
+      y: critIdx.map(i => anomValues[i]),
+      mode: 'markers',
+      name: 'Critical',
+      marker: { color: '#dc2626', size: 8, symbol: 'circle' },
+      hovertemplate: 'Critical<br>Score: %{customdata:.2f}<extra></extra>',
+      customdata: critIdx.map(i => anomScores[i])
+    });
+  }
+
+  if (warnIdx.length) {
+    traces.push({
+      x: warnIdx.map(i => anomTimestamps[i]),
+      y: warnIdx.map(i => anomValues[i]),
+      mode: 'markers',
+      name: 'Warning',
+      marker: { color: '#d97706', size: 7, symbol: 'circle' },
+      hovertemplate: 'Warning<br>Score: %{customdata:.2f}<extra></extra>',
+      customdata: warnIdx.map(i => anomScores[i])
+    });
+  }
+
+  Plotly.newPlot('sensor-chart', traces, {
+    template: 'plotly_white',
+    height: 360,
+    margin: { l: 50, r: 20, t: 20, b: 40 },
+    font: { family: 'JetBrains Mono', size: 11, color: '#64748b' },
+    xaxis: { gridcolor: '#e2e8f0', linecolor: '#e2e8f0', tickfont: { family: 'JetBrains Mono', size: 10, color: '#94a3b8' } },
+    yaxis: { gridcolor: '#e2e8f0', linecolor: '#e2e8f0', tickfont: { family: 'JetBrains Mono', size: 10, color: '#94a3b8' } },
+    plot_bgcolor: '#ffffff',
+    paper_bgcolor: '#ffffff',
+    legend: { orientation: 'h', yanchor: 'bottom', y: 1.02, xanchor: 'left', x: 0, font: { family: 'DM Sans', size: 11 } },
+    hovermode: 'x unified'
+  }, { displayModeBar: false });
+</script>
+{% endblock %}
