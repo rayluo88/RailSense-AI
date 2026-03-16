@@ -88,7 +88,6 @@ def get_sensor_data(
             SensorReading.sensor_type == sensor_type,
         )
         .order_by(SensorReading.timestamp.asc())
-        .limit(1000)
         .all()
     )
 

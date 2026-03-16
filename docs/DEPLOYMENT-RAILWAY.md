@@ -56,29 +56,23 @@ Set these on the application service under the **Variables** tab:
 
 The `${{Postgres.DATABASE_URL}}` syntax dynamically references the PostgreSQL service's connection string.
 
-## Step 5: Run Database Migrations
+## Step 5: Seed Demo Data
 
-After the service deploys successfully, run migrations via Railway's CLI or one-off command:
+Tables are created automatically on app startup via `Base.metadata.create_all()` — no manual migration needed.
+
+Install the Railway CLI if you haven't already:
 
 ```bash
-# Install Railway CLI
 npm install -g @railway/cli
-
-# Login and link project
 railway login
 railway link
-
-# Run Alembic migrations against the service
-railway run alembic upgrade head
 ```
-
-## Step 6: Seed Demo Data
 
 ```bash
 railway run python -m scripts.demo_seed
 ```
 
-## Step 7: Verify
+## Step 6: Verify
 
 1. Open the public URL generated in Step 3
 2. Confirm all four pages load: Live Overview, Sensor Explorer, Alert Feed, Model Comparison
