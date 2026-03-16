@@ -2,19 +2,19 @@
 
 **Real-time railway anomaly detection and AI-powered reasoning for Singapore's MRT network.**
 
-A full-stack decision intelligence platform that ingests train sensor telemetry, applies an ensemble of statistical and ML-based anomaly detection methods, and routes flagged anomalies to an LLM-powered reasoning agent that delivers root-cause analysis, severity assessment, and actionable maintenance recommendations.
+A full-stack decision intelligence platform that ingests train sensor telemetry, applies an ensemble of statistical and ML-based anomaly detectors, and routes flagged anomalies to an LLM-powered reasoning agent for root-cause analysis, severity assessment, and maintenance recommendations.
+
+> **Live demo:** [railsense-ai-production.up.railway.app](https://railsense-ai-production.up.railway.app/overview)
 
 ---
 
 ## Key Capabilities
 
-| Capability | How It Works |
-|---|---|
-| **Time-series anomaly detection** | Four detection methods — Z-Score rolling baseline, Isolation Forest multivariate, STL seasonal decomposition, Prophet forecast residuals — combined via weighted ensemble scoring with agreement boosting |
-| **Decision intelligence** | Protocol-based LLM provider abstraction (DeepSeek, Claude, OpenAI, Ollama) that analyses flagged anomalies and returns structured root-cause hypotheses, severity classifications, and maintenance recommendations |
-| **Automated ML pipelines** | Prefect-orchestrated ingestion → detection → alerting workflow, Dockerised deployment, PostgreSQL persistence, 46 automated tests |
-| **Data integration** | LTA DataMall API client for live train data, synthetic sensor generator with configurable failure scenarios (bearing degradation, door wear, electrical faults) |
-| **Operations dashboard** | Server-rendered HTML dashboard (FastAPI + Jinja2) with 4 views: live network overview, sensor time-series drilldown with Plotly charts, severity-filtered alert feed with on-demand AI analysis, and side-by-side model comparison (precision / recall / F1) |
+- **Time-series anomaly detection** — Four methods (Z-Score, Isolation Forest, STL decomposition, Prophet) combined via weighted ensemble scoring with agreement boosting
+- **AI reasoning agent** — Protocol-based LLM abstraction (DeepSeek, Claude, OpenAI, Ollama) that analyses flagged anomalies and returns structured root-cause hypotheses, severity classifications, and maintenance recommendations
+- **Automated ML pipelines** — Prefect-orchestrated ingestion, detection, and alerting workflows with PostgreSQL persistence and 46 automated tests
+- **Data integration** — LTA DataMall API client for live data; synthetic sensor generator with configurable failure scenarios (bearing degradation, door wear, electrical faults)
+- **Operations dashboard** — Server-rendered HTML dashboard (FastAPI + Jinja2) with live network overview, sensor drilldown, severity-filtered alerts with on-demand AI analysis, and model comparison
 
 ---
 
@@ -75,36 +75,42 @@ open http://localhost:8000/overview
 
 ## Detection Methods
 
-| Method | Type | Approach | Strength |
-|---|---|---|---|
-| **Z-Score** | Statistical | Rolling window baseline; flags readings beyond configurable sigma thresholds | Fast, interpretable, good for sudden spikes |
-| **Isolation Forest** | ML (unsupervised) | Random feature splits across 4 sensor dimensions simultaneously | Captures multivariate correlations (e.g., vibration + current draw) |
-| **STL Decomposition** | Statistical | Seasonal-Trend decomposition removes daily ridership patterns; scores residuals using MAD-based robust estimation | Reduces false positives during peak hours |
-| **Prophet** | Forecast-based | Generates expected value bands with daily seasonality; residuals outside forecast interval are flagged | Captures complex temporal patterns |
-| **Ensemble** | Meta-method | Weighted average of all detectors with agreement boosting: anomalies confirmed by multiple methods receive elevated severity | Higher precision than any single method |
+| Method | Type | Approach |
+|---|---|---|
+| **Z-Score** | Statistical | Rolling window baseline; flags readings beyond configurable sigma thresholds |
+| **Isolation Forest** | ML (unsupervised) | Random feature splits across 4 sensor dimensions; captures multivariate correlations |
+| **STL Decomposition** | Statistical | Seasonal-trend decomposition removes daily ridership patterns; MAD-based residual scoring |
+| **Prophet** | Forecast-based | Daily seasonality model; residuals outside forecast interval are flagged |
+| **Ensemble** | Meta-method | Weighted average of all detectors with agreement boosting for elevated precision |
 
 ---
 
 ## AI Reasoning Agent
 
-The agent implements a **Protocol-based provider abstraction** (`LLMProvider` protocol) enabling hot-swappable LLM backends via environment variable:
+The agent implements a **Protocol-based provider abstraction** (`LLMProvider` protocol) enabling hot-swappable LLM backends:
 
 ```
 LLM_PROVIDER=deepseek  # or claude, openai, ollama
 ```
 
-When an anomaly is flagged, the agent receives full operational context:
-- Sensor type, value, and anomaly score
-- Detection methods that triggered
-- Peak hour status (impact assessment)
-- Recent reading history (trending vs. one-off)
-- Correlated sensor readings on the same train unit
-
-It returns a structured assessment: **root cause hypothesis**, **severity classification** (critical / warning / monitor), and **recommended maintenance action** with chain-of-thought reasoning.
+When an anomaly is flagged, the agent receives full operational context — sensor readings, detection methods triggered, peak hour status, recent history, and correlated sensors — and returns a structured assessment: **root cause hypothesis**, **severity classification** (critical / warning / monitor), and **recommended maintenance action** with chain-of-thought reasoning.
 
 ---
 
-## API Endpoints
+## Dashboard
+
+Four purpose-built views designed for railway operations teams:
+
+| Page | Route | Description |
+|---|---|---|
+| **Live Overview** | `/overview` | Network-wide health metrics, MRT line status, real-time anomaly feed |
+| **Sensor Explorer** | `/sensors` | Train sensor time-series with anomaly overlays and Plotly charts |
+| **Alert Feed** | `/alerts` | Severity-filtered alert cards with expandable details and on-demand AI analysis |
+| **Model Comparison** | `/models` | Side-by-side STL vs Prophet evaluation with precision, recall, F1, and prediction overlays |
+
+---
+
+## API
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -114,26 +120,6 @@ It returns a structured assessment: **root cause hypothesis**, **severity classi
 | `POST` | `/api/assess/{id}` | Trigger AI agent assessment for a specific anomaly |
 | `GET` | `/api/assessments` | List all AI agent assessments |
 | `GET` | `/api/compare` | Run STL vs Prophet comparison on synthetic data |
-
-### Dashboard Pages
-
-| Route | View |
-|---|---|
-| `/overview` | Live network health overview |
-| `/sensors` | Sensor time-series drilldown |
-| `/alerts` | Severity-filtered alert feed |
-| `/models` | Model comparison |
-
----
-
-## Dashboard
-
-Four purpose-built views designed for railway operations teams:
-
-- **Live Overview** — Network-wide health metrics, MRT line status, and real-time anomaly feed
-- **Sensor Explorer** — Drill into individual train sensor time-series with anomaly region overlays and detection method toggles
-- **Alert Feed** — Severity-filtered alert cards with expandable details and on-demand AI analysis
-- **Model Comparison** — Side-by-side STL vs Prophet evaluation with precision, recall, F1, computation time, and prediction overlays
 
 ---
 
@@ -148,7 +134,7 @@ Four purpose-built views designed for railway operations teams:
 | ML / Statistics | scikit-learn, statsmodels, Prophet |
 | Orchestration | Prefect |
 | LLM Providers | DeepSeek, Anthropic Claude, OpenAI, Ollama |
-| Infrastructure | Docker Compose |
+| Infrastructure | Docker Compose, Railway |
 
 ---
 
@@ -201,6 +187,8 @@ railsense-ai/
 │   └── ingestion/
 │       ├── lta_client.py         # LTA DataMall API client
 │       └── synthetic_gen.py      # Synthetic sensor data generator
+├── docs/
+│   └── DEPLOYMENT-RAILWAY.md     # Railway deployment guide
 ├── designs/                      # HTML/CSS dashboard mockups
 └── tests/                        # 46 tests, SQLite in-memory isolation
 ```
@@ -214,7 +202,7 @@ pytest --tb=short -q
 # 46 passed
 ```
 
-Full test coverage across detection methods, API endpoints, database models, LLM provider factory, data pipeline, and synthetic data generation. Tests use SQLite in-memory databases — no external services required.
+Full coverage across detection methods, API endpoints, database models, LLM provider factory, data pipeline, and synthetic data generation. Tests use SQLite in-memory databases — no external services required.
 
 ---
 
