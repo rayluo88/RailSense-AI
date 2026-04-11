@@ -26,7 +26,7 @@ def root():
 @router.get("/overview", response_class=HTMLResponse)
 def overview_page(request: Request, db: Session = Depends(get_db)):
     data = get_overview_data(db)
-    return templates.TemplateResponse("overview.html", {"request": request, **data})
+    return templates.TemplateResponse(request, "overview.html", {"active_page": "overview", **data})
 
 
 @router.get("/sensors", response_class=HTMLResponse)
@@ -37,7 +37,7 @@ def sensor_explorer_page(
     db: Session = Depends(get_db),
 ):
     data = get_sensor_data(db, train_id=train_id, sensor_type=sensor_type)
-    return templates.TemplateResponse("sensor_explorer.html", {"request": request, **data})
+    return templates.TemplateResponse(request, "sensor_explorer.html", {"active_page": "sensors", **data})
 
 
 @router.get("/alerts", response_class=HTMLResponse)
@@ -47,17 +47,15 @@ def alert_feed_page(
     db: Session = Depends(get_db),
 ):
     data = get_alert_feed_data(db, severity=severity)
-    return templates.TemplateResponse("alert_feed.html", {"request": request, **data})
+    return templates.TemplateResponse(request, "alert_feed.html", {"active_page": "alerts", **data})
 
 
 @router.get("/models", response_class=HTMLResponse)
 def model_comparison_page(request: Request):
-    return templates.TemplateResponse("model_comparison.html", {"request": request})
+    return templates.TemplateResponse(request, "model_comparison.html", {"active_page": "models"})
 
 
 @router.get("/operations", response_class=HTMLResponse)
 def operations_page(request: Request, db: Session = Depends(get_db)):
     data = get_operations_data(db)
-    return templates.TemplateResponse(
-        "lta_operations.html", {"request": request, "active_page": "operations", **data}
-    )
+    return templates.TemplateResponse(request, "lta_operations.html", {"active_page": "operations", **data})
