@@ -79,3 +79,38 @@ class LtaDisruption(Base):
     station_id = Column(String(20))
     message = Column(Text, nullable=False)
     direction = Column(String(50))
+    status = Column(String(10))           # "1" = minor delay, "2" = major disruption
+    affected_stations = Column(Text)      # raw range e.g. "NS1-NS5"
+    free_bus = Column(Text)
+    free_shuttle = Column(Text)
+    fetched_at = Column(DateTime)
+
+
+class LtaCrowdDensity(Base):
+    __tablename__ = "lta_crowd_density"
+
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime, nullable=False, index=True)   # StartTime from API
+    end_time = Column(DateTime)
+    station_code = Column(String(10), nullable=False, index=True)
+    train_line = Column(String(10), nullable=False, index=True)
+    crowd_level = Column(String(5), nullable=False)            # l, m, h, NA
+    source = Column(String(10), nullable=False)                # "realtime" or "forecast"
+    fetched_at = Column(DateTime, nullable=False)
+
+    __table_args__ = (
+        Index("ix_lta_crowd_line_station_ts", "train_line", "station_code", "timestamp"),
+    )
+
+
+class LtaFacilitiesMaintenance(Base):
+    __tablename__ = "lta_facilities_maintenance"
+
+    id = Column(Integer, primary_key=True)
+    station_code = Column(String(10), nullable=False, index=True)
+    station_name = Column(String(100), nullable=False)
+    train_line = Column(String(10), nullable=False)
+    equipment_type = Column(String(20), nullable=False, default="Lift")
+    equipment_id = Column(String(50))
+    description = Column(Text)
+    fetched_at = Column(DateTime, nullable=False, index=True)

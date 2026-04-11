@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
@@ -18,6 +18,10 @@ class AnomalyContext:
     is_peak_hour: bool
     recent_history: list[dict]
     correlated_sensors: list[dict]
+    # Real LTA operational context
+    active_disruptions: list[dict] = field(default_factory=list)
+    crowd_levels: list[dict] = field(default_factory=list)
+    facilities_issues: list[dict] = field(default_factory=list)
 
 
 @dataclass

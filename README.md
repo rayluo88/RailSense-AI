@@ -13,8 +13,8 @@ A full-stack decision intelligence platform that ingests train sensor telemetry,
 - **Time-series anomaly detection** — Four methods (Z-Score, Isolation Forest, STL decomposition, Prophet) combined via weighted ensemble scoring with agreement boosting
 - **AI reasoning agent** — Protocol-based LLM abstraction (DeepSeek, Claude, OpenAI, Ollama) that analyses flagged anomalies and returns structured root-cause hypotheses, severity classifications, and maintenance recommendations
 - **Automated ML pipelines** — Prefect-orchestrated ingestion, detection, and alerting workflows with PostgreSQL persistence and 46 automated tests
-- **Data integration** — LTA DataMall API client for live data; synthetic sensor generator with configurable failure scenarios (bearing degradation, door wear, electrical faults)
-- **Operations dashboard** — Server-rendered HTML dashboard (FastAPI + Jinja2) with live network overview, sensor drilldown, severity-filtered alerts with on-demand AI analysis, and model comparison
+- **Live LTA data integration** — Active LTA DataMall API client ingesting real-time station crowd density (all 11 MRT/LRT lines), live service disruption alerts, and facilities maintenance events; synthetic sensor generator covers equipment telemetry (bearing degradation, door wear, electrical faults) not exposed by the public API
+- **Operations dashboard** — Server-rendered HTML dashboard (FastAPI + Jinja2) with live network overview, sensor drilldown, severity-filtered alerts with on-demand AI analysis, model comparison, and a dedicated LTA Operations page showing real crowd density, disruptions, and facilities maintenance
 
 ---
 
@@ -23,8 +23,12 @@ A full-stack decision intelligence platform that ingests train sensor telemetry,
 ```mermaid
 flowchart LR
     subgraph Ingestion["Data Ingestion"]
-        LTA[LTA DataMall API]
-        SYN[Synthetic Generator]
+        SYN[Synthetic Sensor Generator]
+        subgraph LTA["LTA DataMall API"]
+            CROWD[Crowd Density<br/>10-min realtime]
+            DIS[Service Disruptions<br/>ad hoc]
+            FAC[Facilities Maintenance<br/>ad hoc]
+        end
     end
 
     subgraph Detection["Detection Engine"]
@@ -36,6 +40,7 @@ flowchart LR
     end
 
     subgraph Agent["AI Reasoning Agent"]
+        CTX[Enriched Context<br/>sensor + LTA data]
         LLM["LLM Provider<br/>(DeepSeek / Claude / OpenAI / Ollama)"]
     end
 
@@ -44,14 +49,17 @@ flowchart LR
         DASH[HTML Dashboard<br/>Jinja2 + Plotly]
     end
 
-    LTA --> Detection
     SYN --> Detection
     ZS --> ENS
     IF --> ENS
     STL --> ENS
     PR --> ENS
     ENS --> API
-    API --> LLM
+    CROWD --> CTX
+    DIS --> CTX
+    FAC --> CTX
+    API --> CTX
+    CTX --> LLM
     LLM --> API
     API --> DASH
 ```
@@ -93,13 +101,15 @@ The agent implements a **Protocol-based provider abstraction** (`LLMProvider` pr
 LLM_PROVIDER=deepseek  # or claude, openai, ollama
 ```
 
-When an anomaly is flagged, the agent receives full operational context — sensor readings, detection methods triggered, peak hour status, recent history, and correlated sensors — and returns a structured assessment: **root cause hypothesis**, **severity classification** (critical / warning / monitor), and **recommended maintenance action** with chain-of-thought reasoning.
+When an anomaly is flagged, the agent receives full operational context — sensor readings, detection methods triggered, peak hour status, recent history, correlated sensors, **active LTA service disruptions**, **real-time station crowd density**, and **facilities maintenance events on the same line** — and returns a structured assessment: **root cause hypothesis**, **severity classification** (critical / warning / monitor), and **recommended maintenance action** with chain-of-thought reasoning.
+
+The enriched context allows the agent to correlate synthetic sensor anomalies with real-world events — for example, distinguishing whether elevated current draw is caused by equipment degradation or by abnormally high crowd density at peak hour.
 
 ---
 
 ## Dashboard
 
-Four purpose-built views designed for railway operations teams:
+Five purpose-built views designed for railway operations teams:
 
 | Page | Route | Description |
 |---|---|---|
@@ -107,6 +117,7 @@ Four purpose-built views designed for railway operations teams:
 | **Sensor Explorer** | `/sensors` | Train sensor time-series with anomaly overlays and Plotly charts |
 | **Alert Feed** | `/alerts` | Severity-filtered alert cards with expandable details and on-demand AI analysis |
 | **Model Comparison** | `/models` | Side-by-side STL vs Prophet evaluation with precision, recall, F1, and prediction overlays |
+| **LTA Operations** | `/operations` | Live LTA data: active service disruptions, per-station crowd density heatmap (all lines), facilities under maintenance |
 
 ---
 
@@ -117,9 +128,12 @@ Four purpose-built views designed for railway operations teams:
 | `GET` | `/health` | Service health check |
 | `GET` | `/api/sensors` | Query sensor readings (filter by train, type, time range) |
 | `GET` | `/api/anomalies` | List detected anomaly events (filter by severity, train) |
-| `POST` | `/api/assess/{id}` | Trigger AI agent assessment for a specific anomaly |
+| `POST` | `/api/assess/{id}` | Trigger AI agent assessment for a specific anomaly (enriched with live LTA context) |
 | `GET` | `/api/assessments` | List all AI agent assessments |
 | `GET` | `/api/compare` | Run STL vs Prophet comparison on synthetic data |
+| `GET` | `/api/disruptions` | Live train service disruptions (filter by line) |
+| `GET` | `/api/crowd-density` | Real-time station crowd density (filter by line) |
+| `GET` | `/api/facilities` | Current facilities under maintenance (filter by line) |
 
 ---
 
@@ -185,12 +199,13 @@ railsense-ai/
 │   │   ├── compare.py            # STL vs Prophet comparison
 │   │   └── pipeline.py           # Detection pipeline orchestrator
 │   └── ingestion/
-│       ├── lta_client.py         # LTA DataMall API client
+│       ├── lta_client.py         # LTA DataMall API client (crowd density, disruptions, facilities)
 │       └── synthetic_gen.py      # Synthetic sensor data generator
 ├── docs/
-│   └── DEPLOYMENT-RAILWAY.md     # Railway deployment guide
+│   ├── DEPLOYMENT-RAILWAY.md     # Railway deployment guide
+│   └── plans/                    # Architecture and implementation plans
 ├── designs/                      # HTML/CSS dashboard mockups
-└── tests/                        # 46 tests, SQLite in-memory isolation
+└── tests/                        # 54 tests, SQLite in-memory isolation
 ```
 
 ---
@@ -198,11 +213,11 @@ railsense-ai/
 ## Testing
 
 ```bash
-pytest --tb=short -q
-# 46 passed
+uv run pytest --tb=short -q
+# 54 passed
 ```
 
-Full coverage across detection methods, API endpoints, database models, LLM provider factory, data pipeline, and synthetic data generation. Tests use SQLite in-memory databases — no external services required.
+Full coverage across detection methods, API endpoints, database models, LLM provider factory, data pipeline, synthetic data generation, and LTA API client parsing (crowd density, disruptions, facilities). Tests use SQLite in-memory databases — no external services required.
 
 ---
 

@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}MRT Operations{% endblock %}
+{% block page_title %}MRT Operations{% endblock %}
+{% block page_subtitle %}Real-time data from LTA DataMall — service alerts, crowd density, and facilities maintenance{% endblock %}
+
+{% block page_styles %}
+<style>
+  .ops-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xl);
+    margin-bottom: var(--space-xl);
+  }
+
+  .ops-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+  }
+
+  .ops-section.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .section-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    margin-left: auto;
+  }
+
+  /* Disruption table */
+  .disruption-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .disruption-table th {
+    text-align: left;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .disruption-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    vertical-align: top;
+  }
+
+  .disruption-table tr:last-child td { border-bottom: none; }
+
+  .status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .status-major {
+    background: var(--critical-bg);
+    border: 1px solid var(--critical-border);
+    color: var(--critical);
+  }
+
+  .status-minor {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    color: var(--warning);
+  }
+
+  .line-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    background: var(--accent-bg);
+    color: var(--accent);
+    border: 1px solid rgba(37,99,235,0.25);
+  }
+
+  /* Crowd density grid */
+  .crowd-lines {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .crowd-line-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .crowd-line-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    width: 50px;
+    flex-shrink: 0;
+  }
+
+  .crowd-stations {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .crowd-dot {
+    width: 28px;
+    height: 20px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    cursor: default;
+    transition: transform 0.1s;
+  }
+
+  .crowd-dot:hover { transform: scale(1.2); }
+
+  .crowd-l { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+  .crowd-m { background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid rgba(234,179,8,0.3); }
+  .crowd-h { background: rgba(239, 68, 68, 0.15); color: var(--critical); border: 1px solid var(--critical-border); }
+  .crowd-na { background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--border-subtle); }
+
+  .crowd-legend {
+    display: flex;
+    gap: var(--space-md);
+    margin-top: var(--space-md);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border-subtle);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .crowd-legend-item { display: flex; align-items: center; gap: 4px; }
+
+  /* Facilities table */
+  .facilities-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .facilities-table th {
+    text-align: left;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .facilities-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+  }
+
+  .facilities-table tr:last-child td { border-bottom: none; }
+
+  .empty-state {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .empty-state .empty-icon {
+    font-size: 28px;
+    margin-bottom: var(--space-sm);
+  }
+
+  .data-source-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: var(--space-xl);
+    text-align: center;
+    padding: var(--space-md);
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .no-data-banner {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: var(--space-xl);
+    font-size: 13px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% if not has_lta_data %}
+<div class="no-data-banner">
+  <div style="font-size: 24px; margin-bottom: 8px;">&#128663;</div>
+  <div style="font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">No LTA data ingested yet</div>
+  <div>Run the ingestion pipeline to fetch live data from the LTA DataMall API.</div>
+  <code style="font-family: var(--font-mono); font-size: 12px; margin-top: 8px; display: block;">uv run python -m src.tasks</code>
+</div>
+{% endif %}
+
+<!-- Top row: disruptions + crowd density -->
+<div class="ops-grid">
+
+  <!-- Service Disruptions -->
+  <div class="ops-section">
+    <div class="section-header">
+      <span class="nav-icon">&#9888;</span>
+      <span class="section-title">Service Disruptions</span>
+      <span class="section-badge">{{ disruptions | length }} records</span>
+    </div>
+
+    {% if disruptions %}
+    <table class="disruption-table">
+      <thead>
+        <tr>
+          <th>Line</th>
+          <th>Status</th>
+          <th>Direction</th>
+          <th>Stations</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in disruptions[:15] %}
+        <tr>
+          <td><span class="line-badge">{{ d.line_id }}</span></td>
+          <td>
+            {% if d.status == "2" %}
+              <span class="status-badge status-major">Major</span>
+            {% else %}
+              <span class="status-badge status-minor">Minor</span>
+            {% endif %}
+          </td>
+          <td>{{ d.direction or "—" }}</td>
+          <td style="font-family: var(--font-mono); font-size: 11px;">{{ d.affected_stations or "—" }}</td>
+          <td style="font-family: var(--font-mono); font-size: 11px; white-space: nowrap;">
+            {{ d.timestamp.strftime('%d %b %H:%M') }}
+          </td>
+        </tr>
+        {% if d.free_bus or d.free_shuttle %}
+        <tr>
+          <td colspan="5" style="padding: 2px 10px 8px; font-size: 11px; color: var(--text-muted);">
+            {% if d.free_bus %}&#128652; Free bus: {{ d.free_bus }}{% endif %}
+            {% if d.free_shuttle %}&#160;&#160;&#128645; Free shuttle: {{ d.free_shuttle }}{% endif %}
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">&#10003;</div>
+      <div>No active disruptions</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Station Crowd Density -->
+  <div class="ops-section">
+    <div class="section-header">
+      <span class="nav-icon">&#9636;</span>
+      <span class="section-title">Station Crowd Density</span>
+      <span class="section-badge">realtime</span>
+    </div>
+
+    {% if crowd_by_line %}
+    <div class="crowd-lines">
+      {% for line, stations in crowd_by_line.items() | sort %}
+      <div class="crowd-line-row">
+        <span class="crowd-line-label">{{ line }}</span>
+        <div class="crowd-stations">
+          {% for s in stations %}
+          <div class="crowd-dot crowd-{{ s.crowd_level | lower }}" title="{{ s.station_code }}: {{ s.crowd_level }}">
+            {{ s.station_code[-2:] }}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="crowd-legend">
+      <span class="crowd-legend-item"><span class="crowd-dot crowd-l" style="width:14px;height:14px;border-radius:3px;"></span> Low</span>
+      <span class="crowd-legend-item"><span class="crowd-dot crowd-m" style="width:14px;height:14px;border-radius:3px;"></span> Moderate</span>
+      <span class="crowd-legend-item"><span class="crowd-dot crowd-h" style="width:14px;height:14px;border-radius:3px;"></span> High</span>
+      <span class="crowd-legend-item"><span class="crowd-dot crowd-na" style="width:14px;height:14px;border-radius:3px;"></span> N/A</span>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">&#9636;</div>
+      <div>No crowd density data yet</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Full-width: Facilities Maintenance -->
+<div class="ops-section full-width" style="margin-bottom: var(--space-xl);">
+  <div class="section-header">
+    <span class="nav-icon">&#9881;</span>
+    <span class="section-title">Facilities Under Maintenance</span>
+    <span class="section-badge">{{ facilities | length }} items</span>
+  </div>
+
+  {% if facilities %}
+  <table class="facilities-table">
+    <thead>
+      <tr>
+        <th>Line</th>
+        <th>Station</th>
+        <th>Equipment</th>
+        <th>Location / Description</th>
+        <th>Last Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in facilities %}
+      <tr>
+        <td><span class="line-badge">{{ f.train_line }}</span></td>
+        <td>
+          <div style="font-weight: 600; color: var(--text-primary);">{{ f.station_code }}</div>
+          <div style="font-size: 11px; color: var(--text-muted);">{{ f.station_name }}</div>
+        </td>
+        <td style="font-family: var(--font-mono); font-size: 12px;">{{ f.equipment_id or "—" }}</td>
+        <td>{{ f.description or "—" }}</td>
+        <td style="font-family: var(--font-mono); font-size: 11px; white-space: nowrap;">
+          {{ f.fetched_at.strftime('%d %b %H:%M') }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">&#10003;</div>
+    <div>No facilities under maintenance</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="data-source-note">
+  Data sourced from LTA DataMall API (datamall2.mytransport.sg) &mdash;
+  Crowd density updates every 10 min &middot; Disruptions ad hoc &middot; Facilities ad hoc
+</div>
+
+{% endblock %}

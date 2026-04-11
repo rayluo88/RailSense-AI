@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import re
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from src.db.models import AnomalyEvent, SensorReading
+from src.db.models import AnomalyEvent, LtaCrowdDensity, LtaDisruption, LtaFacilitiesMaintenance, SensorReading
 
 TOTAL_FLEET = 200  # Approximate MRT fleet across NSL, EWL, CCL, DTL, NEL
 
@@ -134,6 +136,61 @@ def get_sensor_data(
         "anom_values": anom_values,
         "anom_scores": anom_scores,
         "anom_severities": anom_severities,
+    }
+
+
+def get_operations_data(db: Session) -> dict:
+    """Aggregate LTA real-time operational data for the operations dashboard page."""
+    disruptions = (
+        db.query(LtaDisruption)
+        .order_by(LtaDisruption.timestamp.desc())
+        .limit(50)
+        .all()
+    )
+
+    # Latest crowd snapshot per line: get the most recent fetched_at, then filter
+    latest_crowd = (
+        db.query(LtaCrowdDensity)
+        .order_by(LtaCrowdDensity.fetched_at.desc())
+        .limit(200)
+        .all()
+    )
+
+    # Deduplicate to one entry per (train_line, station_code) — latest only
+    seen: set[tuple[str, str]] = set()
+    crowd_deduped = []
+    for c in latest_crowd:
+        key = (c.train_line, c.station_code)
+        if key not in seen:
+            seen.add(key)
+            crowd_deduped.append(c)
+
+    def _station_sort_key(c) -> int:
+        """Sort by the trailing numeric digits of the station code (e.g. EW10 → 10, P2 → 2)."""
+        m = re.search(r"(\d+)$", c.station_code)
+        return int(m.group(1)) if m else 0
+
+    # Group crowd by line, sorted numerically by station number within each line
+    crowd_by_line: dict[str, list] = {}
+    for c in crowd_deduped:
+        crowd_by_line.setdefault(c.train_line, []).append(c)
+    for line in crowd_by_line:
+        crowd_by_line[line].sort(key=_station_sort_key)
+
+    facilities = (
+        db.query(LtaFacilitiesMaintenance)
+        .order_by(LtaFacilitiesMaintenance.fetched_at.desc())
+        .all()
+    )
+
+    major_disruptions = [d for d in disruptions if d.status == "2"]
+
+    return {
+        "disruptions": disruptions,
+        "major_disruption_count": len(major_disruptions),
+        "crowd_by_line": crowd_by_line,
+        "facilities": facilities,
+        "has_lta_data": bool(disruptions or latest_crowd or facilities),
     }
 
 

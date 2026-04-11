@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from src.dashboard.queries import get_alert_feed_data, get_overview_data, get_sensor_data
+from src.dashboard.queries import get_alert_feed_data, get_operations_data, get_overview_data, get_sensor_data
 from src.db.session import get_db
 
 router = APIRouter(tags=["dashboard"])
@@ -53,3 +53,11 @@ def alert_feed_page(
 @router.get("/models", response_class=HTMLResponse)
 def model_comparison_page(request: Request):
     return templates.TemplateResponse("model_comparison.html", {"request": request})
+
+
+@router.get("/operations", response_class=HTMLResponse)
+def operations_page(request: Request, db: Session = Depends(get_db)):
+    data = get_operations_data(db)
+    return templates.TemplateResponse(
+        "lta_operations.html", {"request": request, "active_page": "operations", **data}
+    )

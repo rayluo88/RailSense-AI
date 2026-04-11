@@ -59,7 +59,38 @@ def test_prompt_template_formats():
         value=ctx.value, anomaly_score=ctx.anomaly_score,
         detection_methods=", ".join(ctx.detection_methods),
         is_peak_hour=ctx.is_peak_hour, recent_history="[]", correlated_sensors="[]",
+        active_disruptions="None", crowd_levels="None", facilities_issues="None",
     )
     assert "T001" in prompt
     assert "vibration" in prompt
+    assert "LTA Operational Context" in prompt
     assert SYSTEM_PROMPT.startswith("You are a railway")
+
+
+def test_anomaly_context_lta_fields_default_empty():
+    ctx = AnomalyContext(
+        timestamp=datetime(2026, 3, 14, 8, 30),
+        train_id="T001", line_id="NSL", station_id="NS1",
+        sensor_type="vibration", value=0.8, anomaly_score=0.92,
+        detection_methods=["zscore"], is_peak_hour=True,
+        recent_history=[], correlated_sensors=[],
+    )
+    assert ctx.active_disruptions == []
+    assert ctx.crowd_levels == []
+    assert ctx.facilities_issues == []
+
+
+def test_anomaly_context_lta_fields_populated():
+    ctx = AnomalyContext(
+        timestamp=datetime(2026, 3, 14, 8, 30),
+        train_id="T001", line_id="NSL", station_id="NS1",
+        sensor_type="vibration", value=0.8, anomaly_score=0.92,
+        detection_methods=["zscore"], is_peak_hour=True,
+        recent_history=[], correlated_sensors=[],
+        active_disruptions=[{"line": "NSL", "status": "2", "stations": "NS1-NS5"}],
+        crowd_levels=[{"station": "NS1", "level": "h"}],
+        facilities_issues=[{"station": "NS3", "equipment": "B1L01", "desc": "Lift to platform"}],
+    )
+    assert len(ctx.active_disruptions) == 1
+    assert ctx.active_disruptions[0]["status"] == "2"
+    assert ctx.crowd_levels[0]["level"] == "h"

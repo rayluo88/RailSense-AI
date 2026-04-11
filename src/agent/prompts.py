@@ -11,6 +11,12 @@ Consider:
 - Whether multiple sensors on the same unit are abnormal (correlated failures)
 - Recent history (trending vs. one-off spike)
 - The specific sensor type and what it indicates about equipment health
+- Real-time LTA operational context: active service disruptions, station crowd density, and facilities under maintenance
+
+When LTA operational data is available, use it to:
+- Correlate sensor anomalies with known service disruptions on the same line
+- Assess whether high crowd density (h) could drive elevated sensor readings (e.g. higher current draw, increased door cycles)
+- Note if nearby facilities maintenance events may indicate broader equipment stress on the line
 
 Be concise and specific. Maintenance teams need clear, actionable guidance."""
 
@@ -29,6 +35,16 @@ Recent History (last 5 readings for this sensor):
 
 Other Sensors on Same Unit Currently:
 {correlated_sensors}
+
+--- LTA Operational Context ---
+Active Disruptions on {line_id} (last 24h):
+{active_disruptions}
+
+Current Station Crowd Density ({line_id}):
+{crowd_levels}
+
+Facilities Under Maintenance ({line_id}):
+{facilities_issues}
 
 Respond in this exact JSON format:
 {{"root_cause": "...", "severity": "critical|warning|monitor", "recommended_action": "...", "reasoning": "..."}}"""

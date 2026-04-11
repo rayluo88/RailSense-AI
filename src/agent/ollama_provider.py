@@ -21,6 +21,9 @@ class OllamaProvider:
             is_peak_hour=context.is_peak_hour,
             recent_history=json.dumps(context.recent_history, default=str),
             correlated_sensors=json.dumps(context.correlated_sensors, default=str),
+            active_disruptions=json.dumps(context.active_disruptions, default=str) or "None",
+            crowd_levels=json.dumps(context.crowd_levels, default=str) or "None",
+            facilities_issues=json.dumps(context.facilities_issues, default=str) or "None",
         )
 
         async with httpx.AsyncClient() as client:

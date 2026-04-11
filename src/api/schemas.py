@@ -41,3 +41,43 @@ class AgentAssessmentOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class DisruptionOut(BaseModel):
+    id: int
+    timestamp: datetime
+    line_id: str
+    station_id: str | None
+    direction: str | None
+    status: str | None
+    affected_stations: str | None
+    free_bus: str | None
+    free_shuttle: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class CrowdDensityOut(BaseModel):
+    id: int
+    timestamp: datetime
+    end_time: datetime | None
+    station_code: str
+    train_line: str
+    crowd_level: str
+    source: str
+    fetched_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class FacilitiesMaintenanceOut(BaseModel):
+    id: int
+    station_code: str
+    station_name: str
+    train_line: str
+    equipment_type: str
+    equipment_id: str | None
+    description: str | None
+    fetched_at: datetime
+
+    model_config = {"from_attributes": True}
