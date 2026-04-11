@@ -58,7 +58,7 @@ The `${{Postgres.DATABASE_URL}}` syntax dynamically references the PostgreSQL se
 
 ## Step 5: Seed Demo Data
 
-Tables are created automatically on app startup via `Base.metadata.create_all()` — no manual migration needed.
+The startup script (`scripts/start.sh`) runs `alembic upgrade head` before starting the server, so tables are created and migrated automatically — no manual steps needed.
 
 Install the Railway CLI if you haven't already:
 
