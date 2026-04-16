@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     deepseek_api_key: str = ""
     lta_api_key: str = ""
+    enable_scheduler: bool = True
+    scheduler_start_hour: int = 9   # SGT (0900)
+    scheduler_end_hour: int = 22    # SGT (2200)
 
     model_config = {"env_file": ".env"}
 

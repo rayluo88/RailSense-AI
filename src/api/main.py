@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
@@ -22,7 +23,20 @@ from src.db.session import Base, engine, get_db
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+
+    # Start background LTA data ingestion scheduler
+    scheduler_tasks: list[asyncio.Task] = []
+    if settings.enable_scheduler:
+        from src.scheduler import start_scheduler
+        scheduler_tasks = await start_scheduler()
+
     yield
+
+    # Graceful shutdown
+    for t in scheduler_tasks:
+        t.cancel()
+    if scheduler_tasks:
+        await asyncio.gather(*scheduler_tasks, return_exceptions=True)
 
 
 app = FastAPI(title="RailSense-AI", version="0.1.0", lifespan=lifespan)
@@ -34,6 +48,12 @@ app.mount("/static", StaticFiles(directory="src/static"), name="static")
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/scheduler/status")
+async def scheduler_status():
+    from src.scheduler import get_scheduler_status
+    return get_scheduler_status()
 
 
 @app.get("/api/sensors", response_model=list[SensorReadingOut])
