@@ -13,7 +13,7 @@ A full-stack decision intelligence platform that ingests train sensor telemetry,
 - **Time-series anomaly detection** — Four methods (Z-Score, Isolation Forest, STL decomposition, Prophet) combined via weighted ensemble scoring with agreement boosting
 - **AI reasoning agent** — Protocol-based LLM abstraction (DeepSeek, Claude, OpenAI, Ollama) that analyses flagged anomalies and returns structured root-cause hypotheses, severity classifications, and maintenance recommendations
 - **Automated ML pipelines** — Prefect-orchestrated ingestion, detection, and alerting workflows with PostgreSQL persistence and 46 automated tests
-- **Live LTA data integration** — Active LTA DataMall API client ingesting real-time station crowd density (all 11 MRT/LRT lines), live service disruption alerts, and facilities maintenance events; synthetic sensor generator covers equipment telemetry (bearing degradation, door wear, electrical faults) not exposed by the public API
+- **Live LTA data integration** — Background scheduler polls LTA DataMall APIs during operating hours (0900–2200 SGT) for near-realtime station crowd density (all 11 MRT/LRT lines, every 10 min), service disruption alerts (every 5 min), and facilities maintenance (every 30 min); synthetic sensor generator covers equipment telemetry (bearing degradation, door wear, electrical faults) not exposed by the public API
 - **Operations dashboard** — Server-rendered HTML dashboard (FastAPI + Jinja2) with live network overview, sensor drilldown, severity-filtered alerts with on-demand AI analysis, model comparison, and a dedicated LTA Operations page showing real crowd density, disruptions, and facilities maintenance
 
 ---
@@ -117,7 +117,7 @@ Five purpose-built views designed for railway operations teams:
 | **Sensor Explorer** | `/sensors` | Train sensor time-series with anomaly overlays and Plotly charts |
 | **Alert Feed** | `/alerts` | Severity-filtered alert cards with expandable details and on-demand AI analysis |
 | **Model Comparison** | `/models` | Side-by-side STL vs Prophet evaluation with precision, recall, F1, and prediction overlays |
-| **LTA Operations** | `/operations` | Live LTA data: active service disruptions, per-station crowd density heatmap (all lines), facilities under maintenance |
+| **LTA Operations** | `/operations` | Live LTA data: active service disruptions, per-station crowd density heatmap (all lines), facilities under maintenance (auto-refreshes every 5 min) |
 
 ---
 
@@ -134,6 +134,7 @@ Five purpose-built views designed for railway operations teams:
 | `GET` | `/api/disruptions` | Live train service disruptions (filter by line) |
 | `GET` | `/api/crowd-density` | Real-time station crowd density (filter by line) |
 | `GET` | `/api/facilities` | Current facilities under maintenance (filter by line) |
+| `GET` | `/api/scheduler/status` | Background ingestion scheduler status and last run times |
 
 ---
 
@@ -164,6 +165,7 @@ railsense-ai/
 │   └── demo_seed.py              # 30-day demo scenario generator
 ├── src/
 │   ├── config.py                 # Pydantic settings
+│   ├── scheduler.py              # Background LTA data ingestion (asyncio, 0900-2200 SGT)
 │   ├── tasks.py                  # Prefect flow definitions
 │   ├── api/
 │   │   ├── main.py               # FastAPI application
@@ -200,6 +202,7 @@ railsense-ai/
 │   │   └── pipeline.py           # Detection pipeline orchestrator
 │   └── ingestion/
 │       ├── lta_client.py         # LTA DataMall API client (crowd density, disruptions, facilities)
+│       ├── writers.py            # Shared DB write helpers for LTA data
 │       └── synthetic_gen.py      # Synthetic sensor data generator
 ├── docs/
 │   ├── DEPLOYMENT-RAILWAY.md     # Railway deployment guide
