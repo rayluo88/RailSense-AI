@@ -32,3 +32,13 @@ def test_get_assessments_empty():
     r = client.get("/api/assessments")
     assert r.status_code == 200
     assert isinstance(r.json(), list)
+
+
+def test_scheduler_status():
+    r = client.get("/api/scheduler/status")
+    assert r.status_code == 200
+    data = r.json()
+    assert "enabled" in data
+    assert "operating_hours" in data
+    assert "currently_active" in data
+    assert "tasks" in data
