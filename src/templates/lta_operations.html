@@ -316,7 +316,7 @@
         <span class="crowd-line-label">{{ line }}</span>
         <div class="crowd-stations">
           {% for s in stations %}
-          <div class="crowd-dot crowd-{{ s.crowd_level | lower }}" title="{{ s.station_code }}: {{ s.crowd_level }}">
+          <div class="crowd-dot crowd-{{ s.crowd_level | lower }}" title="{{ station_names.get(s.station_code, s.station_code) }} ({{ s.station_code }})">
             {{ s.station_code[-2:] }}
           </div>
           {% endfor %}
